@@ -27,7 +27,7 @@ Cross-chain settlement and vault access use **NEAR Intents (1Click)**; strategy 
 | Audit log | **Live** | Every seeded/demo event persisted and rendered |
 | AI strategy proposal | **Built** | `POST /api/strategy/propose` — typed tools, schema-validated proposal, one repair attempt, labelled deterministic fallback when no key is set |
 | Policy engine | **Live, tested** | `src/lib/policy/` — 48 unit tests across the amount, allocation, planner and engine modules (caps, reserve, weights, expiry, arbitrage, 100% caps) |
-| Wallet connect + live balances | **In progress** | Injected EIP-1193 + viem reads, no WalletConnect project ID required |
+| Wallet connect + live balances | **Live, read-only** | Injected EIP-1193 connector (no WalletConnect project id); `GET /api/wallet/balances` reads real USDC and ETH balances on Base and Arbitrum at a stated block, with no USD valuation invented |
 | Committed quote → deposit → settlement | **In progress** | Non-dry quote, ERC-20 deposit, `/v0/deposit/submit`, status polling |
 
 Anything not marked **Live** is either fixture data (explicitly banner-labelled in the UI) or not
@@ -111,13 +111,18 @@ npm run dev                   # http://localhost:3000
    trace. Without `NEARAI_API_KEY` the plan comes from the deterministic planner and says so;
    with a key the same request is routed through NEAR AI Cloud. Every proposal — accepted or
    rejected — is persisted and appears in `/activity`.
-4. **Open `/positions`.** Receipt-token holdings, value, rate and unrealised P&L, plus an explicit
+4. **Press `Connect wallet` in the header.** With a browser wallet installed you get real
+   Base/Arbitrum USDC and ETH balances at a stated block number. Without one it says so
+   plainly instead of inventing balances. Read-only; it never asks for a signature.
+5. **Open `/positions`.** Receipt-token holdings, value, rate and unrealised P&L, plus an explicit
    note that withdrawals are not wired — because pretending otherwise would be a fake feature.
-5. **Open `/activity`.** The audit trail of what the system recorded, including the seed event and
+6. **Open `/activity`.** The audit trail of what the system recorded, including the seed event and
    each proposal it evaluated.
-6. **Hit `/api/health`.** Live dependency report: database status, active data mode, whether AI
+7. **Hit `/api/health`.** Live dependency report: database status, active data mode, whether AI
    credentials are present (never the value), whether 1Click is authenticated.
-7. **Hit `/api/near/route-preview`.** A real HTTP call to 1Click. Costs money only in the sense
+8. **Hit `/api/wallet/balances?address=0x…`.** Live RPC read of USDC and ETH on both chains, with
+   the block number and observation time. No USD field: no price source was used.
+9. **Hit `/api/near/route-preview`.** A real HTTP call to 1Click. Costs money only in the sense
    that it is free; nothing is signed and no address is created.
 
 ### Commands
@@ -208,6 +213,7 @@ src/lib/finance/    exact amounts and cost maths (pure, tested)
 src/lib/policy/     guardrail engine (pure, tested)
 src/lib/near/       1Click client, quote lifecycle, route preview
 src/lib/ai/         NEAR AI Cloud orchestrator + typed tools
+src/lib/wallet/     injected-wallet balance reads (server, viem)
 src/lib/portfolio/  aggregation and valuation
 src/lib/db/         Prisma client (driver adapter)
 prisma/             schema, migrations, labelled seed

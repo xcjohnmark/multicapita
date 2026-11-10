@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { WalletConnect } from "@/components/wallet/wallet-connect";
 
 const NAV = [
   { href: "/", label: "Overview", hint: "Portfolio" },
@@ -88,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden text-xs text-ink-faint sm:inline">No wallet connected</span>
+            <WalletConnect />
             <Link href="/opportunities" className="btn btn-primary h-9 px-3 text-sm">
               Find opportunities
             </Link>
