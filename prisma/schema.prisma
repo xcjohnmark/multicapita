@@ -1,0 +1,384 @@
+// AI Cross-Chain Portfolio Operator — data model
+//
+// Storage rules that matter for correctness:
+//  - Token amounts are stored as ATOMIC strings (exact, no float drift) plus `decimals`.
+//  - USD values are stored as Float for valuation/analytics only. They are never used to
+//    derive custody of funds; authoritative movement always comes from amounts + tx data.
+//  - Status fields are strings validated by zod unions in src/lib/domain/*. SQLite does not
+//    enforce enums, and keeping them as strings keeps the Postgres migration trivial.
+//  - Every externally sourced figure carries its provider + observation timestamp.
+//
+// Migration path: provider -> "postgresql" and swap the adapter. No SQLite-only features
+// (no ATTACH, no autoincrement tricks, no JSON1 queries) are relied on.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Identity and wallets
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wallets           Wallet[]
+  snapshots         PortfolioSnapshot[]
+  strategyProfiles  StrategyProfile[]
+  proposals         StrategyProposal[]
+  quotes            Quote[]
+  transactions      Transaction[]
+  positions         Position[]
+  auditEvents       AuditEvent[]
+}
+
+model Wallet {
+  id                String    @id @default(cuid())
+  userId            String
+  address           String
+  chainFamily       String // "evm" | "near" | "solana"
+  chainId           Int
+  label             String?
+  ownershipVerifiedAt DateTime?
+  createdAt         DateTime  @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balances TokenBalance[]
+
+  @@unique([userId, chainId, address])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Chain / token registry (identity is chain + contract, never ticker)
+// ---------------------------------------------------------------------------
+
+model Chain {
+  chainId   Int     @id
+  slug      String  @unique
+  name      String
+  ecosystem String // "evm" | "near" | "solana" | "bitcoin"
+  isEnabled Boolean @default(true)
+}
+
+model Token {
+  id                 String   @id @default(cuid())
+  chainId            Int
+  contractAddress    String // lowercased EVM address / NEAR contract id / mint
+  assetId            String?  // 1Click assetId when the catalogue lists it
+  symbol             String
+  name               String?
+  decimals           Int
+  canonicalAssetId   String? // cross-chain canonical mapping when verified
+  verificationStatus String   @default("unverified") // unverified | catalogue | verified
+  metadataSource     String?
+  updatedAt          DateTime @updatedAt
+
+  balances  TokenBalance[]
+  positions Position[]
+
+  @@unique([chainId, contractAddress])
+  @@index([symbol])
+  @@index([assetId])
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio history
+// ---------------------------------------------------------------------------
+
+model PortfolioSnapshot {
+  id                String   @id @default(cuid())
+  userId            String
+  snapshotAt        DateTime @default(now())
+  dataMode          String   @default("live") // live | dry_run | sample
+  totalValueUsd     Float?
+  dataQualityStatus String   @default("complete") // complete | partial | stale | unpriced
+  notes             String?
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balances TokenBalance[]
+
+  @@index([userId, snapshotAt])
+}
+
+model TokenBalance {
+  id              String   @id @default(cuid())
+  snapshotId      String
+  walletId        String?
+  tokenId         String
+  amountAtomic    String
+  amountDisplay   Float
+  priceUsd        Float?
+  valueUsd        Float?
+  priceSource     String?
+  priceObservedAt DateTime?
+
+  snapshot PortfolioSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  wallet   Wallet?           @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  token    Token             @relation(fields: [tokenId], references: [id])
+
+  @@index([snapshotId])
+  @@index([tokenId])
+}
+
+// ---------------------------------------------------------------------------
+// Protocols and opportunities
+// ---------------------------------------------------------------------------
+
+model Protocol {
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  name          String
+  protocolType  String // lending | dex | vault | aggregator
+  websiteUrl    String?
+  docsUrl       String?
+  riskNotes     String?
+  isAllowlisted Boolean @default(false)
+
+  opportunities Opportunity[]
+  allocations   StrategyAllocation[]
+  positions     Position[]
+}
+
+model Opportunity {
+  id                 String   @id @default(cuid())
+  strategyType       String // yield_vault | lending | stablecoin_lp | arbitrage
+  protocolId         String
+  chainId            Int
+  tokenOrPairRef     String // human label, e.g. "USDC" or "USDC/USDT 0.01%"
+  marketOrPoolAddress String?
+  estimatedApy       Float?
+  rateType           String? // APY | APR | estimated_net_trade_profit
+  tvlUsd             Float?
+  volume24hUsd       Float?
+  liquidityUsd       Float?
+  feesJson           Json?
+  withdrawalJson     Json?
+  riskFlags          Json?
+  sourcePayload      Json?
+  dataMode           String   @default("live") // live | dry_run | sample
+  observedAt         DateTime
+  expiresAt          DateTime?
+  status             String   @default("active") // active | stale | unsupported | rejected
+
+  protocol    Protocol             @relation(fields: [protocolId], references: [id])
+  allocations StrategyAllocation[]
+
+  @@index([strategyType, chainId, status])
+  @@index([observedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Strategy profiles, constraints, proposals, allocations
+// ---------------------------------------------------------------------------
+
+model StrategyProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  objective String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  constraints StrategyConstraint?
+  proposals   StrategyProposal[]
+
+  @@index([userId])
+}
+
+model StrategyConstraint {
+  id                          String  @id @default(cuid())
+  strategyProfileId           String  @unique
+  minLiquidPercent            Float   @default(0)
+  maxProtocolExposurePercent  Float   @default(100)
+  maxAssetExposurePercent     Float   @default(100)
+  maxChainExposurePercent     Float   @default(100)
+  maxStrategyExposurePercent  Float   @default(100)
+  maxSlippageBps              Int     @default(100)
+  maxGasUsd                   Float   @default(25)
+  minArbitrageProfitUsd       Float   @default(5)
+  approvedChainIds            Json?
+  approvedProtocolIds         Json?
+  approvedTokenIds            Json?
+  requiresUserApproval        Boolean @default(true)
+  updatedAt                   DateTime @updatedAt
+
+  profile StrategyProfile @relation(fields: [strategyProfileId], references: [id], onDelete: Cascade)
+}
+
+model StrategyProposal {
+  id                 String   @id @default(cuid())
+  userId             String
+  strategyProfileId  String?
+  modelId            String
+  objectiveSummary   String
+  proposalJson       Json
+  validationStatus   String   @default("draft") // draft | needs_user_input | validated | rejected
+  validationErrors   Json?
+  createdAt          DateTime @default(now())
+  expiresAt          DateTime?
+  approvedAt         DateTime?
+  status             String   @default("open") // open | approved | executed | expired | discarded
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile     StrategyProfile?    @relation(fields: [strategyProfileId], references: [id], onDelete: SetNull)
+  allocations StrategyAllocation[]
+
+  @@index([userId, createdAt])
+}
+
+model StrategyAllocation {
+  id               String  @id @default(cuid())
+  proposalId       String
+  opportunityId    String?
+  strategyType     String
+  chainId          Int
+  protocolId       String
+  tokenId          String?
+  amountAtomic     String
+  amountUsdEstimate Float?
+  rationale        String?
+  executionStatus  String  @default("planned") // planned | quoted | approved | submitted | settled | failed
+
+  proposal    StrategyProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  opportunity Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  protocol    Protocol         @relation(fields: [protocolId], references: [id])
+  quotes      Quote[]
+
+  @@index([proposalId])
+}
+
+// ---------------------------------------------------------------------------
+// Quotes and transactions (1Click lifecycle + direct protocol calls)
+// ---------------------------------------------------------------------------
+
+model Quote {
+  id                   String   @id @default(cuid())
+  userId               String
+  allocationId         String?
+  provider             String   @default("1click")
+  quoteReference       String?  // correlationId
+  originAssetId        String
+  destinationAssetId   String
+  originAmountAtomic   String
+  expectedOutputAtomic String?
+  minOutputAtomic      String?
+  slippageBps          Int
+  depositType          String? // ORIGIN_CHAIN | INTENTS | CONFIDENTIAL_INTENTS
+  depositAddress       String?
+  recipient            String?
+  recipientType        String?
+  refundTo             String?
+  refundType           String?
+  feeBreakdown         Json?
+  rawResponse          Json?
+  signature            String?
+  deadline             DateTime?
+  createdAt            DateTime @default(now())
+  status               String   @default("quoted") // quoted | expired | deposited | processing | success | failed | refunded | incomplete_deposit
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allocation StrategyAllocation? @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model Transaction {
+  id              String    @id @default(cuid())
+  userId          String
+  quoteId         String?
+  chainId         Int
+  txHash          String?
+  transactionType String // deposit | supply | withdraw | add_liquidity | remove_liquidity | swap
+  fromAddress     String?
+  toAddress       String?
+  status          String    @default("pending") // pending | confirmed | failed | dropped | replaced
+  failureReason   String?
+  blockNumber     Int?
+  submittedAt     DateTime  @default(now())
+  confirmedAt     DateTime?
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quote Quote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, txHash])
+  @@index([userId, submittedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Positions and performance
+// ---------------------------------------------------------------------------
+
+model Position {
+  id                  String   @id @default(cuid())
+  userId              String
+  strategyType        String
+  protocolId          String
+  chainId             Int
+  positionReference   String // vault share account, LP token id, lending market
+  underlyingAssetIds  Json?
+  receiptTokenId      String?
+  initialDepositUsd   Float?
+  currentValueUsd     Float?
+  accruedReturnUsd    Float?
+  realisedPnlUsd      Float?
+  unrealisedPnlUsd    Float?
+  status              String   @default("open") // open | closed | pending | partial
+  openedAt            DateTime @default(now())
+  lastSyncedAt        DateTime?
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  protocol      Protocol           @relation(fields: [protocolId], references: [id])
+  receiptToken  Token?             @relation(fields: [receiptTokenId], references: [id], onDelete: SetNull)
+  snapshots     PositionSnapshot[]
+
+  @@index([userId, status])
+}
+
+model PositionSnapshot {
+  id                  String   @id @default(cuid())
+  positionId          String
+  snapshotAt          DateTime @default(now())
+  valueUsd            Float?
+  underlyingAmounts   Json?
+  rateValue           Float?
+  rateType            String?
+  feesEarnedUsd       Float?
+  rewardsEarnedUsd    Float?
+  pnlUsd              Float?
+  sourceMetadata      Json?
+
+  position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@index([positionId, snapshotAt])
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail — every proposal, approval, execution and reconciliation event
+// ---------------------------------------------------------------------------
+
+model AuditEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  eventType   String
+  actorType   String   @default("system") // user | ai | system
+  referenceId String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([eventType])
+}
