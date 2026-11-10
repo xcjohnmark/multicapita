@@ -274,6 +274,7 @@ model Quote {
   minOutputAtomic      String?
   slippageBps          Int
   depositType          String? // ORIGIN_CHAIN | INTENTS | CONFIDENTIAL_INTENTS
+  chainId              Int?    // origin chain of the deposit
   depositAddress       String?
   recipient            String?
   recipientType        String?

@@ -37,6 +37,13 @@ export const oneClickTokenSchema = z.object({
 export type OneClickToken = z.infer<typeof oneClickTokenSchema>;
 
 export const oneClickQuoteCoreSchema = z.object({
+  // Deposit info: present only when the quote was committed (`dry: false`).
+  // Parsed explicitly so a committed quote is distinguishable from a preview and cannot be
+  // mistaken for one by code that only checks "is there a quote object".
+  depositAddress: z.string().nullable().optional(),
+  depositMemo: z.string().nullable().optional(),
+  deadline: z.string().optional(),
+  timeWhenInactive: z.string().optional(),
   amountIn: z.string(),
   amountInFormatted: z.string().optional(),
   amountInUsd: z.string().optional(),
@@ -59,6 +66,11 @@ export const oneClickQuoteSchema = z.object({
 });
 
 export type OneClickQuote = z.infer<typeof oneClickQuoteSchema>;
+
+/** A committed quote is the only kind that can be funded. */
+export function isCommittedQuote(quote: OneClickQuote): boolean {
+  return typeof quote.quote.depositAddress === "string" && quote.quote.depositAddress.length > 0;
+}
 
 /** Documented terminal and non-terminal states. Unknown values are preserved, not coerced. */
 export const ONECLICK_STATUSES = [

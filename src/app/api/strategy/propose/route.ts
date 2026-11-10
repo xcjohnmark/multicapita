@@ -4,6 +4,7 @@ import { proposeStrategy } from "@/lib/ai/orchestrator";
 import { getPrisma } from "@/lib/db/client";
 import { quoteCrossChainCost } from "@/lib/near/route-cost";
 import { loadStrategyContext } from "@/lib/portfolio/strategy-context";
+import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,21 +20,8 @@ const bodySchema = z.object({
   objective: z.string().trim().min(8).max(1_000),
 });
 
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 6;
-const hits = new Map<string, number[]>();
-
-function rateLimited(key: string, now = Date.now()): boolean {
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 1_000) hits.clear();
-  return recent.length > MAX_REQUESTS;
-}
-
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  if (rateLimited(ip)) {
+  if (rateLimited(clientKey(request), { max: 6 })) {
     return NextResponse.json(
       { error: { message: "Too many strategy requests. Wait a minute before trying again." } },
       { status: 429 },

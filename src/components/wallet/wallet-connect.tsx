@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WalletBalances } from "@/lib/wallet/balances";
+import "@/lib/wallet/provider";
 import { shortenMiddle } from "@/lib/format";
 import { StatusDot } from "@/components/ui/primitives";
 
@@ -14,18 +15,6 @@ import { StatusDot } from "@/components/ui/primitives";
  *  - balances carry their block number and observation time;
  *  - no USD value is invented for a token without a verified price source.
  */
-
-type Eip1193Provider = {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (event: string, handler: (...args: unknown[]) => void) => void;
-  removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
-};
-
-declare global {
-  interface Window {
-    ethereum?: Eip1193Provider;
-  }
-}
 
 const USER_REJECTED = 4001;
 

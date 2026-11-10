@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOneClickClient, OneClickError } from "@/lib/near/oneclick";
 import { quoteInputSchema } from "@/lib/near/route-preview";
+import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -21,23 +22,8 @@ const bodySchema = quoteInputSchema.extend({
 const EVM_ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const NEAR_ACCOUNT = /^[a-z\d]+([-_][a-z\d]+)*(\.[a-z\d]+([-_][a-z\d]+)*)*$/;
 
-// Best-effort in-process limit. Documented as non-distributed: it protects the demo
-// deployment from accidental loops, not from a determined attacker.
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 30;
-const hits = new Map<string, number[]>();
-
-function rateLimited(key: string, now = Date.now()): boolean {
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 1_000) hits.clear();
-  return recent.length > MAX_REQUESTS;
-}
-
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  if (rateLimited(ip)) {
+  if (rateLimited(clientKey(request))) {
     return NextResponse.json(
       { error: { message: "Too many quote requests. Try again in a minute." } },
       { status: 429 },

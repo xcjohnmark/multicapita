@@ -22,6 +22,7 @@ Cross-chain settlement and vault access use **NEAR Intents (1Click)**; strategy 
 | Live cross-chain dry quote | **Live** | `GET /api/near/route-preview` → real Base→Arbitrum USDC quote with signature, `correlationId`, quote-derived cost |
 | Preview-only quote API | **Live** | `POST /api/near/quote` → always `dry: true`, never returns a deposit address |
 | Exact money arithmetic | **Live, tested** | `src/lib/finance/amounts.ts` — `bigint` atomic units, throws rather than rounds |
+| Committed quote → deposit → settlement | **Live path, gated** | `POST /api/execution/preview` (dry, works now) → `POST /api/execution/prepare` (live mode only, explicit approval) → wallet-signed ERC-20 deposit → `/v0/deposit/submit` → status polling. Refused outside live mode |
 | Portfolio aggregation | **Live, sample data** | Overview KPIs, allocation, positions — reads a labelled local fixture |
 | Opportunity board | **Sample data, labelled** | Rates are fixture rows, not market data; the banner says so |
 | Audit log | **Live** | Every seeded/demo event persisted and rendered |
@@ -114,7 +115,11 @@ npm run dev                   # http://localhost:3000
 4. **Press `Connect wallet` in the header.** With a browser wallet installed you get real
    Base/Arbitrum USDC and ETH balances at a stated block number. Without one it says so
    plainly instead of inventing balances. Read-only; it never asks for a signature.
-5. **Open `/positions`.** Receipt-token holdings, value, rate and unrealised P&L, plus an explicit
+5. **Open `/execute`.** Preview a Base→Arbitrum USDC move against a real address: real dry quote,
+   real RPC balances and a guardrail verdict, with nothing signed. Preparing the move is refused
+   unless `APP_DATA_MODE=live`, and even then it needs an approval that restates the exact amount
+   and a wallet signature. The page says which step is unavailable and why.
+6. **Open `/positions`.** Receipt-token holdings, value, rate and unrealised P&L, plus an explicit
    note that withdrawals are not wired — because pretending otherwise would be a fake feature.
 6. **Open `/activity`.** The audit trail of what the system recorded, including the seed event and
    each proposal it evaluated.
@@ -122,7 +127,9 @@ npm run dev                   # http://localhost:3000
    credentials are present (never the value), whether 1Click is authenticated.
 8. **Hit `/api/wallet/balances?address=0x…`.** Live RPC read of USDC and ETH on both chains, with
    the block number and observation time. No USD field: no price source was used.
-9. **Hit `/api/near/route-preview`.** A real HTTP call to 1Click. Costs money only in the sense
+9. **Hit `/api/execution/preview`.** A dry quote plus live balances and a guardrail verdict. No
+   deposit address is created.
+10. **Hit `/api/near/route-preview`.** A real HTTP call to 1Click. Costs money only in the sense
    that it is free; nothing is signed and no address is created.
 
 ### Commands
@@ -211,7 +218,8 @@ src/app/            pages + route handlers (Overview, Opportunities, Strategy, P
 src/components/     shell and UI primitives
 src/lib/finance/    exact amounts and cost maths (pure, tested)
 src/lib/policy/     guardrail engine (pure, tested)
-src/lib/near/       1Click client, quote lifecycle, route preview
+src/lib/near/       1Click client, quote lifecycle, route preview, execution
+src/lib/execution/  cross-chain move service, move guardrails, API contracts
 src/lib/ai/         NEAR AI Cloud orchestrator + typed tools
 src/lib/wallet/     injected-wallet balance reads (server, viem)
 src/lib/portfolio/  aggregation and valuation
@@ -232,7 +240,12 @@ Key decisions: [stack](docs/adr/0001-stack.md) ·
 
 - **Not deployable to a serverless host** with an ephemeral filesystem: SQLite is a local file.
   This is a deliberate trade for reproducibility — see ADR-0001.
-- **No 1Click testnet**, so no automated end-to-end test can settle a real swap.
+- **Only cross-chain USDC is executable today.** A 1Click swap settles one leg. Lending, LP and
+  vault legs are research-only because their direct protocol adapters are not verified; the UI
+  says so instead of offering a dead button.
+- **No 1Click testnet**, so no automated end-to-end test can settle a real swap. The preview and
+  the execution gate are tested; the committed-quote path is gated behind live mode and cannot be
+  exercised without funds.
 - **Withdraw / redeem / remove-liquidity are not implemented.** The Positions screen says so
   instead of offering a dead button.
 - **Lending and LP execution** require direct protocol adapters with verified contract addresses;

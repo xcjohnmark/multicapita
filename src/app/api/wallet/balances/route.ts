@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseAddress, readWalletBalances } from "@/lib/wallet/balances";
+import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,21 +11,8 @@ export const dynamic = "force-dynamic";
  * price is attached. A failed chain read is returned as a failure, never as a zero balance.
  */
 
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 30;
-const hits = new Map<string, number[]>();
-
-function rateLimited(key: string, now = Date.now()): boolean {
-  const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 1_000) hits.clear();
-  return recent.length > MAX_REQUESTS;
-}
-
 export async function GET(request: Request) {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  if (rateLimited(ip)) {
+  if (rateLimited(clientKey(request))) {
     return NextResponse.json(
       { error: { message: "Too many balance requests. Try again in a minute." } },
       { status: 429 },

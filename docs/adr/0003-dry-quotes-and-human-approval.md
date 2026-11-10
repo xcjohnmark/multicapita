@@ -32,3 +32,18 @@ quote" as a stand-in for "a live integration test".
   shape of the API, not by a code comment.
 - Demo data and previews must be visibly labelled; a preview quote can never be mistaken for a
   settlement.
+
+## Implementation notes (2026-11-10)
+
+The execution path (`src/lib/execution/move.ts`) keeps the policy pass ahead of the committed
+quote, because a committed quote creates a real deposit address:
+
+1. a **dry** quote is requested and the execution guardrails are evaluated against it;
+2. only then is a **committed** quote requested, with `recipient` and `refundTo` derived from the
+   connected wallet;
+3. the guardrails are re-run against the committed quote's own numbers. If it is worse than the
+   guardrail allows, the quote is abandoned unspent and the user is told.
+
+Execution additionally requires `APP_DATA_MODE=live` and an approval that restates the exact
+atomic amount. A policy pass, a proposal, or a displayed APY is never an approval. Refusals are
+written to the audit log.
