@@ -211,6 +211,36 @@ async function main() {
 
   const user = await prisma.user.create({ data: { email: "demo@localhost" } });
 
+  // A real, database-backed guardrail set — not the in-code defaults. The policy engine reads
+  // these rows, so editing them changes what the demo permits.
+  await prisma.strategyProfile.create({
+    data: {
+      userId: user.id,
+      name: "Stablecoin mandate (sample)",
+      objective:
+        "Earn stablecoin yield across Base and Arbitrum without losing liquidity or over-concentrating in one protocol.",
+      isActive: true,
+      constraints: {
+        create: {
+          minLiquidPercent: 30,
+          maxProtocolExposurePercent: 40,
+          // The mandate is stablecoins only, so a per-asset cap would be 100% by construction.
+          // Concentration risk is controlled per protocol, chain and strategy instead.
+          maxAssetExposurePercent: 100,
+          // The seeded portfolio is already 87% on Base; 95% keeps a real headroom limit without
+          // making every plan an immediate violation.
+          maxChainExposurePercent: 95,
+          maxStrategyExposurePercent: 60,
+          maxSlippageBps: 100,
+          maxGasUsd: 25,
+          minArbitrageProfitUsd: 5,
+          approvedChainIds: [8453, 42161],
+          requiresUserApproval: true,
+        },
+      },
+    },
+  });
+
   const wallet = await prisma.wallet.create({
     data: {
       userId: user.id,
@@ -272,6 +302,7 @@ async function main() {
       protocolId: aave.id,
       chainId: 8453,
       positionReference: "USDC supplied",
+      underlyingAssetIds: ["USDC"],
       initialDepositUsd: 2438.6,
       currentValueUsd: 2500,
       accruedReturnUsd: 61.4,
@@ -285,6 +316,7 @@ async function main() {
       protocolId: uniswap.id,
       chainId: 8453,
       positionReference: "USDC/USDT 0.01% #184233",
+      underlyingAssetIds: ["USDC", "USDT"],
       initialDepositUsd: 1715.8,
       currentValueUsd: 1800,
       accruedReturnUsd: 84.2,
@@ -298,6 +330,7 @@ async function main() {
       protocolId: earn.id,
       chainId: 8453,
       positionReference: "gtUSDCp shares",
+      underlyingAssetIds: ["USDC"],
       initialDepositUsd: 761.4,
       currentValueUsd: 800,
       accruedReturnUsd: 38.6,
@@ -316,6 +349,7 @@ async function main() {
         protocolId: p.protocolId,
         chainId: p.chainId,
         positionReference: p.positionReference,
+        underlyingAssetIds: p.underlyingAssetIds,
         receiptTokenId: p.receiptTokenId,
         initialDepositUsd: p.initialDepositUsd,
         currentValueUsd: p.currentValueUsd,

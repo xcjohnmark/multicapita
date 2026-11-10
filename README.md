@@ -25,8 +25,8 @@ Cross-chain settlement and vault access use **NEAR Intents (1Click)**; strategy 
 | Portfolio aggregation | **Live, sample data** | Overview KPIs, allocation, positions — reads a labelled local fixture |
 | Opportunity board | **Sample data, labelled** | Rates are fixture rows, not market data; the banner says so |
 | Audit log | **Live** | Every seeded/demo event persisted and rendered |
-| AI strategy proposal | **In progress** | `src/lib/ai/` orchestrator with typed tools + schema-validated proposal |
-| Policy engine | **In progress** | `src/lib/policy/` deterministic constraint evaluation with tests |
+| AI strategy proposal | **Built** | `POST /api/strategy/propose` — typed tools, schema-validated proposal, one repair attempt, labelled deterministic fallback when no key is set |
+| Policy engine | **Live, tested** | `src/lib/policy/` — 48 unit tests across the amount, allocation, planner and engine modules (caps, reserve, weights, expiry, arbitrage, 100% caps) |
 | Wallet connect + live balances | **In progress** | Injected EIP-1193 + viem reads, no WalletConnect project ID required |
 | Committed quote → deposit → settlement | **In progress** | Non-dry quote, ERC-20 deposit, `/v0/deposit/submit`, status polling |
 
@@ -105,12 +105,19 @@ npm run dev                   # http://localhost:3000
 2. **Open `/opportunities`.** Four strategy groups with protocol, chain, asset, rate, liquidity
    and observation time. The banner marks them as fixture rows; no rate claims to be a live
    market rate.
-3. **Open `/positions`.** Receipt-token holdings, value, rate and unrealised P&L, plus an explicit
+3. **Open `/strategy`.** Write an objective and press **Propose allocation**. You get a plan with
+   per-leg weights and amounts, the guardrails that produced them (read from
+   `StrategyConstraint`, not hardcoded), machine-readable policy findings, and the execution
+   trace. Without `NEARAI_API_KEY` the plan comes from the deterministic planner and says so;
+   with a key the same request is routed through NEAR AI Cloud. Every proposal — accepted or
+   rejected — is persisted and appears in `/activity`.
+4. **Open `/positions`.** Receipt-token holdings, value, rate and unrealised P&L, plus an explicit
    note that withdrawals are not wired — because pretending otherwise would be a fake feature.
-4. **Open `/activity`.** The audit trail of what the system recorded, including the seed event.
-5. **Hit `/api/health`.** Live dependency report: database status, active data mode, whether AI
+5. **Open `/activity`.** The audit trail of what the system recorded, including the seed event and
+   each proposal it evaluated.
+6. **Hit `/api/health`.** Live dependency report: database status, active data mode, whether AI
    credentials are present (never the value), whether 1Click is authenticated.
-6. **Hit `/api/near/route-preview`.** A real HTTP call to 1Click. Costs money only in the sense
+7. **Hit `/api/near/route-preview`.** A real HTTP call to 1Click. Costs money only in the sense
    that it is free; nothing is signed and no address is created.
 
 ### Commands
