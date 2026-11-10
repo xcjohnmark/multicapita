@@ -23,7 +23,6 @@ export type PlannerResult = {
 };
 
 /** Below this, fixed per-quote fees dominate: 10 USDC Earn quotes returned "no liquidity". */
-const MIN_LEG_USD = 10;
 const MIN_LEG_CENTS = 1_000n;
 /** Never take more than this share of a pool's stated liquidity in one leg. */
 const MAX_LIQUIDITY_SHARE = 0.1;

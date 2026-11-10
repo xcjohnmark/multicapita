@@ -98,6 +98,9 @@ npm run dev                   # http://localhost:3000
 
 ### Do this → see that
 
+A step-by-step judge walkthrough with expected values is in
+[demo-script.md](docs/demo-script.md).
+
 1. **Open `/`.** You see a portfolio header, four KPIs, an allocation bar and an open-positions
    table. A yellow **Demo mode** banner states that portfolio figures are fixtures. To the right,
    the **NEAR Intents route** card shows a *live* Base→Arbitrum USDC dry quote: quoted output,
