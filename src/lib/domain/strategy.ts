@@ -17,6 +17,17 @@ export const strategyTypeSchema = z.enum([
 
 export type StrategyType = z.infer<typeof strategyTypeSchema>;
 
+export const strategyCategorySchema = z.enum([
+  "yielding",
+  "investing",
+  "tokenized_stock",
+  "arbitraging",
+  "liquidity",
+  "balanced",
+]);
+
+export type StrategyCategory = z.infer<typeof strategyCategorySchema>;
+
 export const proposalLegSchema = z.object({
   /** Opportunity id from the tool results. */
   opportunityId: z.string().min(1).max(64),
@@ -29,6 +40,12 @@ export const proposalLegSchema = z.object({
 export type ProposalLeg = z.infer<typeof proposalLegSchema>;
 
 export const aiProposalSchema = z.object({
+  strategyName: z.string().min(1).max(120).default("Multi-Chain Strategy"),
+  category: strategyCategorySchema.default("yielding"),
+  summary: z.string().min(1).max(400).default("Balanced cross-chain allocation strategy."),
+  howItWorks: z.array(z.string().min(1).max(300)).max(6).default([]),
+  targetApy: z.number().min(0).max(10_000).default(0),
+  decisionPoints: z.array(z.string().min(1).max(300)).max(6).default([]),
   objectiveSummary: z.string().min(1).max(400),
   legs: z.array(proposalLegSchema).min(1).max(8),
   /**

@@ -41,8 +41,8 @@ describe("status vocabulary", () => {
 
 describe("minimum move threshold", () => {
   it("derives the atomic threshold from the token's own decimals", () => {
-    expect(minMoveAtomic(6)).toBe(10_000_000n);
-    expect(minMoveAtomic(18)).toBe(10n * 10n ** 18n);
+    expect(minMoveAtomic(6)).toBe(5_000_000n);
+    expect(minMoveAtomic(18)).toBe(5n * 10n ** 18n);
     expect(minMoveAtomic(0)).toBe(BigInt(MIN_MOVE_UNITS));
     expect(MIN_MOVE_ATOMIC).toBe(minMoveAtomic(6));
   });

@@ -1,58 +1,45 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import { Loader2, RotateCcw, ShieldCheck, SlidersHorizontal, Sparkles } from "lucide-react";
+import {
+  StrategyPackageCard,
+  type ProposeResponse,
+} from "@/components/strategy/strategy-package-card";
 import { StatusDot } from "@/components/ui/primitives";
-import { formatPercent, formatUsd } from "@/lib/format";
+import { formatUsd } from "@/lib/format";
 
-type Violation = {
-  code: string;
-  severity: "error" | "warning" | "info";
-  message: string;
-  context?: Record<string, string | number | boolean | null>;
+type GuardrailOverrides = {
+  minLiquidPercent: number;
+  maxProtocolExposurePercent: number;
+  maxChainExposurePercent: number;
+  maxStrategyExposurePercent: number;
 };
 
-type Leg = {
+type CustomLegDraft = {
   opportunityId: string;
-  protocolName: string;
-  strategyType: string;
-  chainName: string;
-  asset: string;
-  weightBps: number;
-  amountUsd: number;
-  expectedRatePercent: number | null;
-  rationale: string;
-  dataMode: string;
+  label: string;
+  weightPercent: number;
 };
 
-type ProposeResponse = {
-  id: string;
-  source: "model" | "deterministic_fallback";
-  modelId: string | null;
-  proposal: {
-    objectiveSummary: string;
-    legs: Array<{ opportunityId: string; weightBps: number; rationale: string }>;
-    deployBps: number;
-    riskNotes: string[];
-    requiresUserInput: string[];
-  };
-  evaluation: {
-    ok: boolean;
-    legs: Leg[];
-    violations: Violation[];
-    totals: {
-      totalUsd: number;
-      deployableUsd: number;
-      reserveUsd: number;
-      reservePercent: number;
-      allocatedUsd: number;
-    };
-  };
-  trace: Array<{ step: string; detail: string }>;
-  warnings: string[];
-};
-
-const SEVERITY_ORDER: Record<Violation["severity"], number> = { error: 0, warning: 1, info: 2 };
+const PRESET_OBJECTIVES = [
+  {
+    label: "Stable yield",
+    text: "Keep at least 30% liquid, cap any protocol at 40%, and allocate to the best risk-adjusted stablecoin yield across Base and Arbitrum.",
+  },
+  {
+    label: "Balanced Base + Arb",
+    text: "Balance lending and yield vaults evenly across Base and Arbitrum while keeping 30% liquid.",
+  },
+  {
+    label: "Arbitrage scan",
+    text: "Check cross-chain arbitrage spreads across Base and Arbitrum and deploy only if net profit clears costs and guardrails.",
+  },
+  {
+    label: "Conservative",
+    text: "Keep 50% liquid reserve and place the rest into established Aave lending markets on Base.",
+  },
+] as const;
 
 export function StrategyBuilder({
   aiConfigured,
@@ -68,12 +55,30 @@ export function StrategyBuilder({
     maxStrategy: number;
   };
 }) {
-  const [objective, setObjective] = useState(
-    "Keep at least 30% liquid, avoid concentrating more than 40% in one protocol, and take the best risk-adjusted stablecoin yield across Base and Arbitrum.",
-  );
+  const [objective, setObjective] = useState<string>(PRESET_OBJECTIVES[0].text);
   const [pending, setPending] = useState(false);
+  const [reEvaluating, setReEvaluating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProposeResponse | null>(null);
+
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [overrides, setOverrides] = useState<GuardrailOverrides>({
+    minLiquidPercent: defaults.minLiquidPercent,
+    maxProtocolExposurePercent: defaults.maxProtocol,
+    maxChainExposurePercent: defaults.maxChain,
+    maxStrategyExposurePercent: defaults.maxStrategy,
+  });
+  const [legDrafts, setLegDrafts] = useState<CustomLegDraft[]>([]);
+
+  function seedCustomDrafts(data: ProposeResponse) {
+    setLegDrafts(
+      data.evaluation.legs.map((leg) => ({
+        opportunityId: leg.opportunityId,
+        label: `${leg.protocolName} · ${leg.asset} (${leg.chainName})`,
+        weightPercent: Math.round(leg.weightBps / 100),
+      })),
+    );
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -83,21 +88,79 @@ export function StrategyBuilder({
       const response = await fetch("/api/strategy/propose", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ objective }),
+        body: JSON.stringify({ objective, guardrailOverrides: overrides }),
       });
-      const body = (await response.json()) as { data?: ProposeResponse; error?: { message: string } };
+      const body = (await response.json()) as {
+        data?: ProposeResponse;
+        error?: { message: string };
+      };
       if (!response.ok || !body.data) {
         setError(body.error?.message ?? "The proposal request failed.");
         setResult(null);
         return;
       }
       setResult(body.data);
+      seedCustomDrafts(body.data);
+      setCustomizeOpen(false);
     } catch {
       setError("Could not reach the server. Check the dev server logs.");
     } finally {
       setPending(false);
     }
   }
+
+  async function applyCustomization(event: React.FormEvent) {
+    event.preventDefault();
+    setReEvaluating(true);
+    setError(null);
+    try {
+      const customLegs =
+        legDrafts.length > 0
+          ? legDrafts
+              .filter((d) => d.weightPercent > 0)
+              .map((d) => ({
+                opportunityId: d.opportunityId,
+                weightBps: Math.round(d.weightPercent * 100),
+              }))
+          : undefined;
+
+      const response = await fetch("/api/strategy/propose", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          objective,
+          guardrailOverrides: overrides,
+          customLegs,
+        }),
+      });
+      const body = (await response.json()) as {
+        data?: ProposeResponse;
+        error?: { message: string };
+      };
+      if (!response.ok || !body.data) {
+        setError(body.error?.message ?? "Custom evaluation failed.");
+        return;
+      }
+      setResult(body.data);
+      seedCustomDrafts(body.data);
+    } catch {
+      setError("Could not reach the server.");
+    } finally {
+      setReEvaluating(false);
+    }
+  }
+
+  function resetOverrides() {
+    setOverrides({
+      minLiquidPercent: defaults.minLiquidPercent,
+      maxProtocolExposurePercent: defaults.maxProtocol,
+      maxChainExposurePercent: defaults.maxChain,
+      maxStrategyExposurePercent: defaults.maxStrategy,
+    });
+    if (result) seedCustomDrafts(result);
+  }
+
+  const totalDraftPercent = legDrafts.reduce((sum, leg) => sum + leg.weightPercent, 0);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -106,14 +169,32 @@ export function StrategyBuilder({
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Objective</p>
-              <h2 className="text-sm font-semibold">What should the portfolio do?</h2>
+              <h2 className="text-base font-medium tracking-tight text-ink">
+                What should the portfolio do?
+              </h2>
             </div>
             <span className="chip">
               <StatusDot tone={aiConfigured ? "ok" : "warn"} />
               {aiConfigured ? "NEAR AI Cloud" : "Deterministic planner"}
             </span>
           </div>
-          <div className="space-y-3 px-4 py-4">
+
+          <div className="space-y-3.5 px-5 py-4">
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_OBJECTIVES.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setObjective(preset.text)}
+                  className={`chip cursor-pointer transition-colors duration-100 hover:border-line-strong hover:text-ink ${
+                    objective === preset.text ? "border-ink bg-surface-raised text-ink" : ""
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
             <label htmlFor="objective" className="sr-only">
               Objective
             </label>
@@ -123,36 +204,190 @@ export function StrategyBuilder({
               onChange={(event) => setObjective(event.target.value)}
               rows={3}
               maxLength={1_000}
-              className="w-full resize-y rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+              className="w-full resize-y rounded-lg border border-line-strong bg-canvas px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
               placeholder="Describe the outcome you want, and any constraints."
             />
+
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-ink-faint">
-                The model selects opportunities. Sizing, rounding and every constraint check happen
-                in deterministic code.
+              <p className="text-xs text-ink-muted">
+                Returns a packaged strategy card checked against deterministic guardrails.
               </p>
-              <button type="submit" className="btn btn-primary" disabled={pending}>
-                {pending ? "Evaluating…" : "Propose allocation"}
+              <button
+                type="submit"
+                className="btn btn-primary h-9 px-4 text-sm"
+                disabled={pending || reEvaluating}
+                data-loading={pending ? "true" : undefined}
+              >
+                {pending ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={1.5} aria-hidden />
+                ) : (
+                  <Sparkles className="size-4" strokeWidth={1.5} aria-hidden />
+                )}
+                <span>{pending ? "Building strategy…" : "Propose strategy"}</span>
               </button>
             </div>
+
             {!aiConfigured ? (
-              <p className="rounded-md border border-warn/30 bg-warn/[0.06] px-3 py-2 text-xs text-ink-muted">
-                No <code className="font-mono">NEARAI_API_KEY</code> configured. Requests use the
-                deterministic planner — a real ranking and sizing engine, not a stub. Add a key to
-                route the same request through NEAR AI Cloud.
+              <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 text-xs text-ink-secondary">
+                No <code className="font-mono text-ink">NEARAI_API_KEY</code> configured. Requests
+                use the deterministic planner — a real ranking and sizing engine, not a stub. Add a
+                key to route the same request through NEAR AI Cloud.
               </p>
             ) : null}
           </div>
         </form>
 
         {error ? (
-          <div className="rounded-panel border border-danger/30 bg-danger/[0.06] px-4 py-3 text-sm text-ink">
-            <span className="font-semibold text-danger">Request failed. </span>
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-ink"
+          >
+            <span className="font-semibold text-danger-text">Request failed. </span>
             {error}
           </div>
         ) : null}
 
-        {result ? <ResultPanel result={result} /> : null}
+        {result ? (
+          <>
+            <StrategyPackageCard
+              result={result}
+              customizeOpen={customizeOpen}
+              onOpenCustomize={() => setCustomizeOpen((prev) => !prev)}
+            />
+
+            {customizeOpen ? (
+              <form onSubmit={applyCustomization} className="panel">
+                <div className="panel-header">
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal
+                      className="size-4 text-ink-secondary"
+                      strokeWidth={1.5}
+                      aria-hidden
+                    />
+                    <div>
+                      <p className="eyebrow">Customize plan</p>
+                      <h3 className="text-sm font-semibold text-ink">
+                        Adjust weights &amp; policy caps
+                      </h3>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetOverrides}
+                    className="btn btn-ghost h-8 px-2.5 text-xs text-ink-muted"
+                  >
+                    <RotateCcw className="size-3.5" strokeWidth={1.5} aria-hidden />
+                    <span>Reset</span>
+                  </button>
+                </div>
+
+                <div className="space-y-5 px-5 py-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <NumberField
+                      id="minLiquid"
+                      label="Min liquid (%)"
+                      value={overrides.minLiquidPercent}
+                      onChange={(val) =>
+                        setOverrides((prev) => ({ ...prev, minLiquidPercent: val }))
+                      }
+                    />
+                    <NumberField
+                      id="maxProtocol"
+                      label="Max protocol (%)"
+                      value={overrides.maxProtocolExposurePercent}
+                      onChange={(val) =>
+                        setOverrides((prev) => ({ ...prev, maxProtocolExposurePercent: val }))
+                      }
+                    />
+                    <NumberField
+                      id="maxChain"
+                      label="Max chain (%)"
+                      value={overrides.maxChainExposurePercent}
+                      onChange={(val) =>
+                        setOverrides((prev) => ({ ...prev, maxChainExposurePercent: val }))
+                      }
+                    />
+                    <NumberField
+                      id="maxStrategy"
+                      label="Max strategy (%)"
+                      value={overrides.maxStrategyExposurePercent}
+                      onChange={(val) =>
+                        setOverrides((prev) => ({ ...prev, maxStrategyExposurePercent: val }))
+                      }
+                    />
+                  </div>
+
+                  {legDrafts.length > 0 ? (
+                    <div className="space-y-2.5 border-t border-line pt-4">
+                      <div className="flex items-center justify-between">
+                        <p className="eyebrow">Leg allocation weights</p>
+                        <span
+                          className={`metric text-xs font-medium ${
+                            totalDraftPercent === 100 ? "text-accent-text" : "text-warn-text"
+                          }`}
+                        >
+                          Total: {totalDraftPercent}%
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {legDrafts.map((leg, idx) => (
+                          <div
+                            key={leg.opportunityId}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-3.5 py-2.5"
+                          >
+                            <span className="text-xs font-medium text-ink">{leg.label}</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                step={5}
+                                value={leg.weightPercent}
+                                aria-label={`${leg.label} weight percentage`}
+                                onChange={(e) => {
+                                  const next = Number(e.target.value);
+                                  setLegDrafts((prev) =>
+                                    prev.map((item, i) =>
+                                      i === idx ? { ...item, weightPercent: next } : item,
+                                    ),
+                                  );
+                                }}
+                                className="w-28 accent-green-600"
+                              />
+                              <span className="metric w-11 text-right text-xs font-medium text-ink">
+                                {leg.weightPercent}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
+                    <p className="text-xs text-ink-muted">
+                      Weights are normalized and checked deterministically by the policy engine.
+                    </p>
+                    <button
+                      type="submit"
+                      disabled={reEvaluating || pending}
+                      data-loading={reEvaluating ? "true" : undefined}
+                      className="btn btn-primary h-9 px-4 text-xs"
+                    >
+                      {reEvaluating ? (
+                        <Loader2 className="size-3.5 animate-spin" strokeWidth={1.5} aria-hidden />
+                      ) : (
+                        <ShieldCheck className="size-3.5" strokeWidth={1.5} aria-hidden />
+                      )}
+                      <span>{reEvaluating ? "Checking policy…" : "Re-evaluate with overrides"}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            ) : null}
+          </>
+        ) : null}
       </div>
 
       <aside className="space-y-6">
@@ -160,20 +395,20 @@ export function StrategyBuilder({
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Enforced</p>
-              <h2 className="text-sm font-semibold">Guardrails</h2>
+              <h2 className="text-base font-medium tracking-tight text-ink">Guardrails</h2>
             </div>
           </div>
-          <dl className="space-y-2.5 px-4 py-4 text-xs">
+          <dl className="space-y-2.5 px-5 py-4 text-xs">
             <Row label="Portfolio" value={formatUsd(defaults.totalUsd)} />
             <Row label="Available" value={formatUsd(defaults.availableUsd)} />
-            <Row label="Min liquid reserve" value={`${defaults.minLiquidPercent}%`} />
-            <Row label="Max per protocol" value={`${defaults.maxProtocol}%`} />
-            <Row label="Max per chain" value={`${defaults.maxChain}%`} />
-            <Row label="Max per strategy" value={`${defaults.maxStrategy}%`} />
+            <Row label="Min liquid reserve" value={`${overrides.minLiquidPercent}%`} />
+            <Row label="Max per protocol" value={`${overrides.maxProtocolExposurePercent}%`} />
+            <Row label="Max per chain" value={`${overrides.maxChainExposurePercent}%`} />
+            <Row label="Max per strategy" value={`${overrides.maxStrategyExposurePercent}%`} />
           </dl>
-          <p className="border-t border-line px-4 py-3 text-[11px] leading-relaxed text-ink-faint">
-            These are applied by the policy engine after the model answers. A proposal that breaks
-            one is returned with its violations and cannot be executed.
+          <p className="border-t border-line bg-surface px-5 py-3 text-[11px] leading-relaxed text-ink-muted">
+            Applied deterministically after the model answers. A plan that breaks a cap returns
+            violations and cannot execute.
           </p>
         </section>
 
@@ -181,12 +416,12 @@ export function StrategyBuilder({
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Pipeline</p>
-              <h2 className="text-sm font-semibold">Who decides what</h2>
+              <h2 className="text-base font-medium tracking-tight text-ink">Who decides what</h2>
             </div>
           </div>
-          <ol className="space-y-3 px-4 py-4 text-xs text-ink-muted">
-            <Step n="1" title="AI selects">
-              Reads portfolio and opportunities through read-only tools and proposes weights.
+          <ol className="space-y-3 px-5 py-4 text-xs text-ink-secondary">
+            <Step n="1" title="AI packages">
+              Selects opportunities and frames a concise, categorized strategy card.
             </Step>
             <Step n="2" title="Code sizes">
               Converts weights to exact cents, applies caps, rounds deterministically.
@@ -194,8 +429,8 @@ export function StrategyBuilder({
             <Step n="3" title="Policy enforces">
               Independently re-checks every cap and returns machine-readable violations.
             </Step>
-            <Step n="4" title="You approve">
-              Nothing executes without a fresh quote, a wallet signature and your approval.
+            <Step n="4" title="You customize &amp; approve">
+              Adjust weights or caps, inspect the deep dive, and sign each leg in Execute.
             </Step>
           </ol>
         </section>
@@ -204,176 +439,43 @@ export function StrategyBuilder({
   );
 }
 
-function ResultPanel({ result }: { result: ProposeResponse }) {
-  const { evaluation, proposal } = result;
-  const violations = [...evaluation.violations].sort(
-    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
-  );
-  const errors = violations.filter((v) => v.severity === "error");
-
+function NumberField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
   return (
-    <section className="panel">
-      <div className="panel-header">
-        <div className="min-w-0">
-          <p className="eyebrow mb-1">Proposal</p>
-          <h2 className="truncate text-sm font-semibold">{proposal.objectiveSummary}</h2>
-        </div>
-        <span
-          className={`chip ${evaluation.ok ? "border-accent/30 text-accent" : "border-danger/30 text-danger"}`}
-        >
-          <StatusDot tone={evaluation.ok ? "ok" : "error"} />
-          {evaluation.ok ? "Passed guardrails" : `${errors.length} blocking issue${errors.length === 1 ? "" : "s"}`}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-line px-4 py-2.5 text-[11px] text-ink-faint">
-        <span>
-          Source:{" "}
-          <span className="text-ink-muted">
-            {result.source === "model" ? result.modelId ?? "model" : "deterministic planner"}
-          </span>
-        </span>
-        <span>
-          Deploying <span className="metric text-ink-muted">{formatUsd(evaluation.totals.allocatedUsd)}</span> of{" "}
-          <span className="metric text-ink-muted">{formatUsd(evaluation.totals.deployableUsd)}</span> deployable
-        </span>
-        <span>
-          Reserve <span className="metric text-ink-muted">{formatUsd(evaluation.totals.reserveUsd)}</span>
-        </span>
-      </div>
-
-      {evaluation.legs.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead>
-              <tr className="border-b border-line text-left">
-                <th className="px-4 py-2 text-xs font-medium text-ink-faint">Allocation</th>
-                <th className="px-4 py-2 text-xs font-medium text-ink-faint">Chain</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Rate</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Weight</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Amount</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {evaluation.legs.map((leg) => (
-                <tr key={leg.opportunityId}>
-                  <td className="px-4 py-3">
-                    <p className="text-ink">
-                      {leg.protocolName} · {leg.asset}
-                    </p>
-                    <p className="mt-0.5 text-xs text-ink-faint">{leg.rationale}</p>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-ink-muted">{leg.chainName}</td>
-                  <td className="px-4 py-3 text-right metric text-ink-muted" data-numeric>
-                    {formatPercent(leg.expectedRatePercent)}
-                  </td>
-                  <td className="px-4 py-3 text-right metric text-ink-muted" data-numeric>
-                    {(leg.weightBps / 100).toFixed(1)}%
-                  </td>
-                  <td className="px-4 py-3 text-right metric text-ink" data-numeric>
-                    {formatUsd(leg.amountUsd)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/execute?direction=${leg.chainName.toLowerCase().includes("arb") ? "base-to-arb" : "arb-to-base"}&amount=${Math.round(leg.amountUsd)}`}
-                      className="btn btn-secondary px-2.5 py-1 text-xs"
-                    >
-                      Move funds →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="px-4 py-6 text-sm text-ink-muted">
-          No capital would be allocated under the current guardrails.
-        </p>
-      )}
-
-      {violations.length > 0 ? (
-        <div className="border-t border-line">
-          <p className="eyebrow px-4 pt-3">Policy findings</p>
-          <ul className="space-y-1.5 px-4 py-3">
-            {violations.map((violation, index) => (
-              <li key={`${violation.code}-${index}`} className="flex gap-2 text-xs">
-                <span className="mt-1 shrink-0">
-                  <StatusDot
-                    tone={
-                      violation.severity === "error"
-                        ? "error"
-                        : violation.severity === "warning"
-                          ? "warn"
-                          : "idle"
-                    }
-                  />
-                </span>
-                <span className={violation.severity === "error" ? "text-ink" : "text-ink-muted"}>
-                  <span className="font-mono text-[10px] uppercase tracking-wide text-ink-faint">
-                    {violation.code}
-                  </span>
-                  <br />
-                  {violation.message}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {proposal.riskNotes.length > 0 || proposal.requiresUserInput.length > 0 ? (
-        <div className="space-y-3 border-t border-line px-4 py-3">
-          {proposal.riskNotes.length > 0 ? (
-            <div>
-              <p className="eyebrow mb-1.5">Risk notes</p>
-              <ul className="list-disc space-y-1 pl-4 text-xs text-ink-muted">
-                {proposal.riskNotes.map((note) => (
-                  <li key={note}>{note}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {proposal.requiresUserInput.length > 0 ? (
-            <div>
-              <p className="eyebrow mb-1.5">Needs your decision</p>
-              <ul className="list-disc space-y-1 pl-4 text-xs text-warn">
-                {proposal.requiresUserInput.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <details className="border-t border-line">
-        <summary className="cursor-pointer px-4 py-2.5 text-xs text-ink-faint">
-          Execution trace ({result.trace.length} steps)
-        </summary>
-        <ol className="space-y-1 px-4 pb-3 font-mono text-[11px] text-ink-faint">
-          {result.trace.map((step, index) => (
-            <li key={`${step.step}-${index}`}>
-              <span className="text-ink-muted">{step.step}</span> · {step.detail}
-            </li>
-          ))}
-        </ol>
-      </details>
-
-      <p className="border-t border-line px-4 py-3 text-[11px] leading-relaxed text-ink-faint">
-        A passing proposal is not an executable order. Execution requires a fresh provider quote, a
-        wallet signature and explicit approval. Multi-leg strategies are not atomic.
-      </p>
-    </section>
+    <div>
+      <label htmlFor={id} className="eyebrow mb-1 block">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        min={0}
+        max={100}
+        value={value}
+        onChange={(e) => {
+          const next = Number(e.target.value);
+          if (!Number.isNaN(next)) onChange(Math.max(0, Math.min(100, next)));
+        }}
+        className="h-9 w-full rounded-lg border border-line-strong bg-canvas px-3 font-mono text-xs text-ink focus:border-ink focus:outline-none"
+      />
+    </div>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-ink-faint">{label}</dt>
-      <dd className="metric text-ink" data-numeric>
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="metric font-medium text-ink" data-numeric>
         {value}
       </dd>
     </div>
@@ -383,7 +485,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function Step({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-line-strong text-[10px] text-ink-muted">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-[11px] font-medium text-ink-secondary">
         {n}
       </span>
       <span>

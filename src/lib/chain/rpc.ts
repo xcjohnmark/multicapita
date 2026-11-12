@@ -1,4 +1,4 @@
-import { createPublicClient, http, type Address, type Chain, type PublicClient } from "viem";
+import { createPublicClient, fallback, http, type Address, type Chain, type PublicClient } from "viem";
 import { SUPPORTED_CHAINS, getChain, toViemChain } from "@/lib/chains";
 
 /**
@@ -27,9 +27,18 @@ export function getPublicClient(chainId: number): RpcClient {
   const chain = getChain(chainId);
   if (!chain) throw new Error(`No RPC configured for chain ${chainId}.`);
 
+  const urls =
+    chain.fallbackRpcUrls && chain.fallbackRpcUrls.length > 0
+      ? chain.fallbackRpcUrls
+      : [chain.rpcUrl];
+
+  const transports = urls.map((url) =>
+    http(url, { timeout: RPC_TIMEOUT_MS, retryCount: 2 }),
+  );
+
   const client = createPublicClient({
     chain: toViemChain(chain) as Chain,
-    transport: http(chain.rpcUrl, { timeout: RPC_TIMEOUT_MS, retryCount: 2 }),
+    transport: fallback(transports, { rank: false }),
   }) as RpcClient;
 
   clients.set(chainId, client);

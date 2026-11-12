@@ -26,6 +26,18 @@ const envSchema = z.object({
 
   RPC_URL_BASE: z.preprocess(emptyToUndefined, z.string().url().optional()),
   RPC_URL_ARBITRUM: z.preprocess(emptyToUndefined, z.string().url().optional()),
+
+  /** 32+ byte secret used to sign the session cookie. Required in live mode. */
+  SESSION_SECRET: z.preprocess(emptyToUndefined, z.string().min(32).optional()),
+
+  /** Runtime kill switch. Any truthy value refuses new execution. */
+  EXECUTION_DISABLED: z
+    .preprocess(emptyToUndefined, z.enum(["0", "1", "true", "false"]).optional())
+    .transform((value) => value === "1" || value === "true"),
+
+  /** Hard per-transaction and per-UTC-day notional caps, in whole USDC. */
+  EXECUTION_MAX_MOVE_USDC: z.coerce.number().positive().default(50),
+  EXECUTION_MAX_DAILY_USDC: z.coerce.number().positive().default(100),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

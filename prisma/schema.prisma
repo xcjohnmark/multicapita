@@ -21,12 +21,38 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
+// Authentication
+// ---------------------------------------------------------------------------
+
+/** Single-use SIWE nonces. Consumed with a conditional update, never read-then-write. */
+model AuthNonce {
+  id        String    @id @default(cuid())
+  nonce     String    @unique
+  address   String
+  domain    String
+  issuedAt  DateTime
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([expiresAt])
+}
+
+/** Runtime switches that can be flipped without a redeploy. */
+model SystemFlag {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
 // Identity and wallets
 // ---------------------------------------------------------------------------
 
 model User {
   id        String   @id @default(cuid())
   email     String?  @unique
+  /** Lowercased EVM address used to resolve a returning wallet to its user. */
+  address   String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

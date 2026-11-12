@@ -1,6 +1,6 @@
-# ADR-0004 — MVP scope: Base + Arbitrum, USDC-centric stablecoins, `defi` track only
+# ADR-0004 — Initial Base + Arbitrum narrow launch scope
 
-- **Status:** accepted
+- **Status:** superseded by ADR-0005
 - **Date:** 2026-11-10
 
 ## Context

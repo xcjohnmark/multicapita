@@ -1,12 +1,15 @@
-# AI Cross-Chain Portfolio Operator
+# Capita — AI Cross-Chain Portfolio Operator
 
+> **All your crypto. One place.**
+
+Capita is a production-grade, live mainnet cross-chain DeFi & RWA portfolio operator platform.
 An AI research agent with a deterministic guardrail engine that sits in front of a non-custodial
-cross-chain DeFi portfolio. It tells you where your capital is, proposes where it could go, and
+cross-chain portfolio. It tells you where your capital is, proposes where it could go, and
 refuses to execute anything the numbers or your own constraints do not support.
 
-Built for the **NEAR Hackathon — `defi` track**. Chains: **Base** and **Arbitrum One**.
-Cross-chain settlement and vault access use **NEAR Intents (1Click)**; strategy reasoning uses
-**NEAR AI Cloud**.
+Primary chains: **Base** and **Arbitrum One** (with Ethereum and Solana expansion for DeFi and
+tokenized equities/RWAs). Cross-chain settlement and vault access use **NEAR Intents (1Click)**;
+destination equity swaps use verified DEX/RFQ adapters; strategy reasoning uses **NEAR AI Cloud**.
 
 > **The product's central rule:** the model proposes, deterministic code decides.
 > No LLM arithmetic reaches a signature. No quote is presented as an opportunity, and no
@@ -239,7 +242,9 @@ docs/agent-skills.md installed agent skills and why
 Key decisions: [stack](docs/adr/0001-stack.md) ·
 [no custom NEAR contract](docs/adr/0002-no-custom-near-contract.md) ·
 [dry quotes and human approval](docs/adr/0003-dry-quotes-and-human-approval.md) ·
-[MVP scope](docs/adr/0004-mvp-scope.md).
+[initial scope (superseded)](docs/adr/0004-mvp-scope.md) ·
+[production scope & tokenized equities](docs/adr/0005-production-scope-and-tokenized-equities.md) ·
+[cross-chain copytrading from NEAR](docs/adr/0006-cross-chain-copytrading-near-setup.md).
 
 ---
 
@@ -247,19 +252,22 @@ Key decisions: [stack](docs/adr/0001-stack.md) ·
 
 - **Not deployable to a serverless host** with an ephemeral filesystem: SQLite is a local file.
   This is a deliberate trade for reproducibility — see ADR-0001.
-- **Only cross-chain USDC is executable today.** A 1Click swap settles one leg. Lending, LP and
-  vault legs are research-only because their direct protocol adapters are not verified; the UI
-  says so instead of offering a dead button.
+- **Only cross-chain USDC is executable today.** A 1Click swap settles one leg. Lending, LP, vault,
+  and tokenized-equity legs are specified in `project-docs/prd.md` and `project-docs/build-guide.md`
+  and will become executable as their destination protocol and DEX/RFQ adapters are wired; the UI
+  surfaces live capability status honestly instead of offering dead buttons.
 - **No 1Click testnet**, so no automated end-to-end test can settle a real swap. The preview and
   the execution gate are tested; the committed-quote path is gated behind live mode and cannot be
   exercised without funds.
 - **Withdraw / redeem / remove-liquidity are not implemented.** The Positions screen says so
   instead of offering a dead button.
-- **Lending and LP execution** require direct protocol adapters with verified contract addresses;
-  they are the next integration, not a claim in this README.
+- **Lending, LP, and tokenized equity execution** require direct protocol and DEX/RFQ adapters with
+  verified contract addresses and Reference NAV / spread checks; they are documented in the build
+  guide, not yet live in runtime routes.
 - **Cross-chain arbitrage is research, not autopilot.** Both legs settle separately; the UI must
   never imply atomicity.
-- DeFi returns are variable, principal is not guaranteed, and stablecoins can depeg.
+- DeFi and tokenized-equity returns are variable, principal is not guaranteed, stablecoins can
+  depeg, and tokenized stocks carry issuer/custodian and off-hours spread risks.
 
 ## Licence
 

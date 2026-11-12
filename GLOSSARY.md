@@ -72,8 +72,34 @@ or Arbitrum, so LP scope is effectively USDC-centric.
 Executable price, not displayed price, decides profitability; both legs settle separately and the
 opportunity is not atomic. Ranking by advertised spread alone is a defect.
 
-**Cost basis** — The USD amount originally committed to a position, used to separate yield from
-price movement.
+**Tokenized equity (RWA)** — An on-chain token issued by a regulated or custody-backed provider
+(e.g. Ondo, Backed, Dinari) representing economic exposure to a traditional stock, ETF, or
+commodity. Distinct from native crypto and memecoins: identity is `(chainId, contractAddress)`
+plus issuer/wrapper metadata, never ticker alone.
+
+**Reference NAV** — The underlying traditional market price of an equity or ETF paired with the
+market's session state (`OPEN`, `EXTENDED`, `CLOSED`) and observation timestamp. Used to measure
+premium/discount against an on-chain execution quote; never treated as an executable DEX price.
+
+**Off-hours spread** — The percentage or basis-point divergence between an on-chain DEX/RFQ
+execution quote and the underlying equity's Reference NAV when traditional stock exchanges are
+closed. Checked by the policy engine before permitting execution.
+
+**Copytrading** — Mirroring a verified external wallet's non-memecoin spot rotations or DeFi
+positions (`1Click Earn` vaults, Aave lending supplies, Uniswap V3 LP entries) via a single NEAR
+funding and policy setup. Every mirrored leg remains subject to user guardrails and is never
+presented as risk-free replication.
+
+**Leader wallet** — Any public cross-chain address (`0x...`, `.eth`, `.sol`, `.near`) inspected
+or followed for copytrading. Indexed positions remain observational until contract identity and
+live execution quotes are verified.
+
+**Price drift** — The basis-point move in an asset's executable quote price between the leader
+wallet's confirmed transaction block and the follower's quote time. Checked against a deterministic
+maximum cap before allowing execution.
+
+**Cost basis** — The USD amount originally committed to a position, used to separate yield or
+price return from subsequent valuation changes.
 
 ## System
 

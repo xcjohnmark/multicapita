@@ -38,11 +38,21 @@ export type WalletBalances = {
   chains: ChainBalance[];
 };
 
+export type RawTokenBalance = {
+  symbol: string;
+  address: Address;
+  decimals: number;
+  atomic: bigint | null;
+  name?: string;
+  isNative?: boolean;
+};
+
 export type RawChainBalance = {
   chain: SupportedChain;
   blockNumber: bigint | null;
   nativeAtomic: bigint | null;
   usdcAtomic: bigint | null;
+  tokenBalances?: RawTokenBalance[];
   observedAt: Date;
   error: string | null;
 };
@@ -65,18 +75,29 @@ export function toChainBalance(raw: RawChainBalance): ChainBalance {
           amountDisplay: roundForDisplay(raw.nativeAtomic, 18, 6),
         };
 
-  const tokens: TokenLine[] =
-    raw.usdcAtomic === null
-      ? []
-      : [
-          {
-            symbol: raw.chain.usdc.symbol,
-            address: raw.chain.usdc.address,
-            decimals: raw.chain.usdc.decimals,
-            amountAtomic: raw.usdcAtomic.toString(),
-            amountDisplay: formatAtomic(raw.usdcAtomic, raw.chain.usdc.decimals),
-          },
-        ];
+  let tokens: TokenLine[] = [];
+
+  if (raw.tokenBalances && raw.tokenBalances.length > 0) {
+    tokens = raw.tokenBalances
+      .filter((tb) => !tb.isNative && tb.atomic !== null)
+      .map((tb) => ({
+        symbol: tb.symbol,
+        address: tb.address,
+        decimals: tb.decimals,
+        amountAtomic: tb.atomic!.toString(),
+        amountDisplay: formatAtomic(tb.atomic!, tb.decimals),
+      }));
+  } else if (raw.usdcAtomic !== null) {
+    tokens = [
+      {
+        symbol: raw.chain.usdc.symbol,
+        address: raw.chain.usdc.address,
+        decimals: raw.chain.usdc.decimals,
+        amountAtomic: raw.usdcAtomic.toString(),
+        amountDisplay: formatAtomic(raw.usdcAtomic, raw.chain.usdc.decimals),
+      },
+    ];
+  }
 
   return {
     chainId: raw.chain.id,
@@ -109,24 +130,67 @@ export async function readWalletBalances(address: Address): Promise<WalletBalanc
   const results = await Promise.all(
     SUPPORTED_CHAINS.map(async (chain): Promise<RawChainBalance> => {
       const client = getPublicClient(chain.id);
+      const erc20Tokens = chain.tokens.filter((t) => !t.isNative);
 
       try {
-        const [blockNumber, nativeBalance, usdcBalance] = await Promise.all([
+        const [blockNumber, nativeBalance] = await Promise.all([
           client.getBlockNumber(),
           client.getBalance({ address }),
-          client.readContract({
-            address: chain.usdc.address,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [address],
-          }),
         ]);
+
+        let tokenResults: (bigint | null)[] = [];
+
+        try {
+          // Multicall batch query for all ERC-20 tokens on this chain
+          const multicallResponse = await client.multicall({
+            contracts: erc20Tokens.map((t) => ({
+              address: t.address,
+              abi: erc20Abi,
+              functionName: "balanceOf" as const,
+              args: [address] as const,
+            })),
+            allowFailure: true,
+          });
+
+          tokenResults = multicallResponse.map((res) =>
+            res.status === "success" ? (res.result as bigint) : null,
+          );
+        } catch {
+          // Multicall fallback: attempt sequential reads if multicall reverts
+          tokenResults = await Promise.all(
+            erc20Tokens.map(async (token) => {
+              try {
+                return await client.readContract({
+                  address: token.address,
+                  abi: erc20Abi,
+                  functionName: "balanceOf",
+                  args: [address],
+                });
+              } catch {
+                return null;
+              }
+            }),
+          );
+        }
+
+        const rawTokenBalances: RawTokenBalance[] = erc20Tokens.map((t, idx) => ({
+          symbol: t.symbol,
+          address: t.address,
+          decimals: t.decimals,
+          atomic: tokenResults[idx] ?? null,
+          name: t.name,
+          isNative: false,
+        }));
+
+        const usdcEntry = rawTokenBalances.find((t) => t.symbol === "USDC");
+        const usdcAtomic = usdcEntry?.atomic ?? null;
 
         return {
           chain,
           blockNumber,
           nativeAtomic: nativeBalance,
-          usdcAtomic: usdcBalance,
+          usdcAtomic,
+          tokenBalances: rawTokenBalances,
           observedAt: new Date(),
           error: null,
         };
@@ -138,6 +202,7 @@ export async function readWalletBalances(address: Address): Promise<WalletBalanc
           blockNumber: null,
           nativeAtomic: null,
           usdcAtomic: null,
+          tokenBalances: [],
           observedAt: new Date(),
           error: error instanceof Error ? error.message : "RPC read failed",
         };

@@ -3,50 +3,73 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { WalletConnect } from "@/components/wallet/wallet-connect";
+import {
+  ArrowLeftRight,
+  ArrowUpRight,
+  Compass,
+  History,
+  Layers,
+  LayoutGrid,
+  Sparkles,
+} from "lucide-react";
+import { SessionMenu } from "@/components/shell/session-menu";
+import { StatusDot } from "@/components/ui/primitives";
+import type { ShellSession } from "@/lib/shell-state";
 
 const NAV = [
-  { href: "/", label: "Overview", hint: "Portfolio" },
-  { href: "/opportunities", label: "Opportunities", hint: "Markets" },
-  { href: "/strategy", label: "Strategy", hint: "Build" },
-  { href: "/execute", label: "Execute", hint: "Move" },
-  { href: "/positions", label: "Positions", hint: "Manage" },
-  { href: "/activity", label: "Activity", hint: "Audit" },
+  { href: "/", label: "Overview", icon: LayoutGrid },
+  { href: "/opportunities", label: "Opportunities", icon: Compass },
+  { href: "/strategy", label: "Strategy", icon: Sparkles },
+  { href: "/execute", label: "Execute", icon: ArrowLeftRight },
+  { href: "/positions", label: "Positions", icon: Layers },
+  { href: "/activity", label: "Activity", icon: History },
 ] as const;
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  session,
+}: {
+  children: ReactNode;
+  session: ShellSession;
+}) {
   const pathname = usePathname();
+  const isMarketingPage = pathname === "/";
+
+  if (isMarketingPage) {
+    return <div className="min-h-dvh flex flex-col bg-canvas">{children}</div>;
+  }
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      <aside className="lg:sticky lg:top-0 lg:h-dvh lg:w-60 lg:shrink-0 border-b border-line lg:border-b-0 lg:border-r">
-        <div className="flex h-14 items-center justify-between px-4 lg:h-16">
-          <Link href="/" className="flex items-center gap-2.5">
+    <div className="flex min-h-dvh flex-col bg-canvas lg:flex-row">
+      <aside className="border-b border-line bg-canvas lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-[232px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="flex h-14 items-center justify-between px-4 lg:h-16 lg:px-5">
+          <Link href="/" className="flex items-center gap-2.5 rounded-lg outline-offset-4">
             <LogoMark />
-            <span className="text-sm font-semibold tracking-tight">Portfolio Operator</span>
+            <span className="text-base font-semibold tracking-tight text-ink">Capita</span>
           </Link>
-          <span className="chip lg:hidden">NEAR</span>
+          <span className="lg:hidden">
+            <ModeChip session={session} />
+          </span>
         </div>
 
-        <nav aria-label="Primary" className="hidden lg:block px-3 pt-2">
-          <ul className="space-y-0.5">
+        <nav aria-label="Primary" className="hidden flex-1 px-3 pt-2 lg:block">
+          <ul className="space-y-1">
             {NAV.map((item) => {
               const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const Icon = item.icon;
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    className={`group flex items-center justify-between rounded-md px-3 py-2 text-sm transition-colors ${
-                      active
-                        ? "bg-surface-raised text-ink"
-                        : "text-ink-muted hover:bg-surface hover:text-ink"
-                    }`}
+                    className="nav-link"
                   >
-                    <span>{item.label}</span>
-                    <span className="text-[10px] uppercase tracking-wider text-ink-faint">
-                      {item.hint}
-                    </span>
+                    <Icon
+                      className={`size-5 shrink-0 ${active ? "text-ink" : "text-ink-muted group-hover:text-ink"}`}
+                      strokeWidth={1.5}
+                      aria-hidden
+                    />
+                    <span className="truncate">{item.label}</span>
                   </Link>
                 </li>
               );
@@ -54,81 +77,104 @@ export function AppShell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
 
-        <div className="hidden lg:absolute lg:bottom-0 lg:w-60 lg:border-t lg:border-line lg:p-3">
-          <div className="flex items-center justify-between rounded-md bg-surface px-3 py-2">
+        <div className="hidden border-t border-line p-3 lg:block">
+          <div className="flex items-center justify-between rounded-xl border border-line bg-surface px-3 py-2.5">
             <div>
               <p className="eyebrow">Networks</p>
-              <p className="text-xs text-ink-muted">Base · Arbitrum</p>
+              <p className="mt-0.5 text-xs font-medium text-ink-secondary">Base · Arbitrum</p>
             </div>
-            <span className="size-1.5 rounded-full bg-accent" aria-hidden />
+            <StatusDot tone="ok" />
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas/90 px-4 backdrop-blur lg:h-16 lg:px-8">
-          <div className="flex items-center gap-2 overflow-x-auto lg:hidden">
+          <nav aria-label="Mobile" className="flex items-center gap-1 overflow-x-auto lg:hidden">
             {NAV.map((item) => {
               const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs ${
-                    active ? "bg-surface-raised text-ink" : "text-ink-muted"
+                  aria-current={active ? "page" : undefined}
+                  className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium tracking-tight transition-colors duration-100 ${
+                    active ? "bg-surface-raised text-ink" : "text-ink-muted hover:text-ink"
                   }`}
                 >
                   {item.label}
                 </Link>
               );
             })}
-          </div>
+          </nav>
 
           <div className="hidden items-center gap-2 text-xs text-ink-muted lg:flex">
-            <span className="eyebrow">Mode</span>
-            <ModeChip />
+            <ModeChip session={session} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <WalletConnect />
-            <Link href="/opportunities" className="btn btn-primary h-9 px-3 text-sm">
-              Find opportunities
+          <div className="flex shrink-0 items-center gap-2">
+            <SessionMenu session={session} />
+            <Link href="/opportunities" className="btn btn-primary h-9 px-3.5 text-sm">
+              <span>Explore</span>
+              <ArrowUpRight className="size-4" strokeWidth={1.5} aria-hidden />
             </Link>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 py-6 lg:px-8 lg:py-8">
+        <main
+          id="dashboard"
+          className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 lg:px-8 lg:py-8"
+        >
           {children}
         </main>
 
-        <footer className="border-t border-line px-4 py-4 text-xs text-ink-faint lg:px-8">
-          <p>
-            Non-custodial. Quotes are sourced from NEAR Intents 1Click; every figure shows its
-            source and timestamp. DeFi returns are variable and principal is not guaranteed.
-          </p>
+        <footer className="border-t border-line bg-surface px-4 py-4 text-xs text-ink-muted lg:px-8">
+          <div className="mx-auto flex max-w-[1200px] flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <p>
+              Capita — All your crypto. One place. Non-custodial cross-chain portfolio operator
+              settling via NEAR Intents 1Click.
+            </p>
+            <p className="text-ink-faint">Every figure displays source provenance and timestamp.</p>
+          </div>
         </footer>
       </div>
     </div>
   );
 }
 
-function ModeChip() {
-  // The mode is resolved server-side; this is a static, honest placeholder until the
-  // config endpoint is wired into the shell.
+function ModeChip({ session }: { session: ShellSession }) {
+  const live = session.dataMode === "live";
+  const dryRun = session.dataMode === "dry_run";
   return (
-    <span className="chip border-line-strong text-ink-muted">
-      <span className="size-1.5 rounded-full bg-warn" aria-hidden />
-      Sample data
+    <span
+      className={`chip ${
+        live
+          ? "border-green-200 bg-green-50 text-accent-text"
+          : dryRun
+            ? "border-blue-200 bg-blue-50 text-blue-700"
+            : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}
+      title={session.executionReason ?? undefined}
+    >
+      <StatusDot tone={live ? "ok" : dryRun ? "info" : "warn"} />
+      {session.dataModeLabel}
     </span>
   );
 }
 
 function LogoMark() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="1" y="1" width="22" height="22" rx="6" stroke="currentColor" opacity="0.35" />
-      <path d="M6 15.5 10 8l4 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M14.5 15.5 16.5 11l2 4.5" stroke="var(--color-accent)" strokeWidth="1.6" strokeLinecap="round" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0">
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="#111827"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray="42 14"
+      />
+      <circle cx="17.5" cy="8" r="2.25" fill="#22C55E" />
     </svg>
   );
 }

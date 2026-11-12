@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getChain } from "@/lib/chains";
+import { getViewer, viewerOwnsAddress } from "@/lib/auth/viewer";
 import { getPrisma } from "@/lib/db/client";
 import { loadGuardrails, moveBodySchema } from "@/lib/execution/api";
+import { loadExecutionLimits } from "@/lib/execution/limits";
 import { parseMoveAmount, prepareMove, balancesToJson, evaluationToJson } from "@/lib/execution/move";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
+import { isSameOrigin } from "@/lib/http/origin";
+import {
+  lookupIdempotency,
+  readIdempotencyKey,
+  requestHash,
+  saveIdempotency,
+} from "@/lib/http/idempotency";
 
 export const dynamic = "force-dynamic";
 
@@ -12,16 +21,25 @@ export const dynamic = "force-dynamic";
  * Prepare an executable cross-chain move.
  *
  * This is the only endpoint that can request a committed 1Click quote. It refuses unless all of
- * the following hold: live data mode, an explicit approval echoing the exact amount, and a passed
- * execution guardrail evaluation. A refusal is persisted as an audit event, because "we were
- * asked to do something unsafe and declined" is exactly what an audit log is for.
+ * the following hold: a signed-in session that owns the wallet, live data mode, the kill switch is
+ * off, the amount is inside the per-transaction and 24-hour caps, an explicit approval echoes the
+ * exact amount, and the execution guardrails pass. A refusal is persisted as an audit event,
+ * because "we were asked to do something unsafe and declined" is exactly what an audit log is for.
  */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: { message: "Cross-origin request refused." } }, { status: 403 });
+  }
   if (rateLimited(clientKey(request), { max: 10 })) {
     return NextResponse.json(
       { error: { message: "Too many execution requests. Try again in a minute." } },
       { status: 429 },
     );
+  }
+
+  const viewer = await getViewer();
+  if (!viewer) {
+    return NextResponse.json({ error: { message: "Sign in to prepare a move." } }, { status: 401 });
   }
 
   let payload: unknown;
@@ -47,6 +65,18 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!viewerOwnsAddress(viewer, parsed.data.walletAddress)) {
+    return NextResponse.json(
+      {
+        error: {
+          message:
+            "The connected wallet is not the wallet this session signed in with. Sign in again with the wallet you intend to move funds from.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
   const decimals = getChain(parsed.data.fromChainId)?.usdc.decimals ?? 6;
   const amount = parseMoveAmount(parsed.data.amount, decimals);
   const approved = parsed.data.approval
@@ -59,7 +89,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!parsed.data.approval?.accepted) {
+  if (!parsed.data.approval?.accepted || approved.atomic !== amount.atomic) {
     return NextResponse.json(
       {
         error: {
@@ -71,7 +101,34 @@ export async function POST(request: Request) {
     );
   }
 
-  const guardrails = await loadGuardrails();
+  const idempotencyKey = readIdempotencyKey(request);
+  const hash = requestHash(parsed.data);
+  if (idempotencyKey) {
+    const lookup = await lookupIdempotency({
+      userId: viewer.userId,
+      scope: "execution.prepare",
+      key: idempotencyKey,
+      hash,
+    });
+    if (lookup.kind === "conflict") {
+      return NextResponse.json(
+        { error: { message: "This idempotency key was used for a different move." } },
+        { status: 409 },
+      );
+    }
+    if (lookup.kind === "replay") {
+      return NextResponse.json(lookup.body, {
+        status: lookup.status,
+        headers: { "idempotent-replay": "true" },
+      });
+    }
+  }
+
+  const [guardrails, limits] = await Promise.all([
+    loadGuardrails(viewer.userId),
+    loadExecutionLimits({ userId: viewer.userId, decimals }),
+  ]);
+
   const result = await prepareMove({
     fromChainId: parsed.data.fromChainId,
     toChainId: parsed.data.toChainId,
@@ -82,18 +139,18 @@ export async function POST(request: Request) {
     explicitApproval: true,
     decimals,
     dataMode: env.APP_DATA_MODE,
+    disabledReason: limits.disabledReason,
+    maxMoveAtomic: limits.maxMoveAtomic,
+    maxDailyAtomic: limits.maxDailyAtomic,
+    dailyUsedAtomic: limits.dailyUsedAtomic,
   });
 
   const prisma = getPrisma();
-  const user = await prisma.user.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
-  if (!user) {
-    return NextResponse.json({ error: { message: "No user session." } }, { status: 409 });
-  }
 
   if (!result.ok) {
     await prisma.auditEvent.create({
       data: {
-        userId: user.id,
+        userId: viewer.userId,
         eventType: "execution.refused",
         actorType: "system",
         details: {
@@ -103,27 +160,43 @@ export async function POST(request: Request) {
           amountAtomic: amount.atomic.toString(),
           refusal: result.refusal,
           violations: result.evaluation.violations,
+          walletAddress: parsed.data.walletAddress,
+          demoSession: viewer.demo,
         },
       },
     });
 
-    return NextResponse.json(
-      {
-        data: {
-          ok: false,
-          refusal: result.refusal,
-          evaluation: evaluationToJson(result.evaluation),
-          balances: balancesToJson(result.balances),
-          dataMode: env.APP_DATA_MODE,
+    const body = {
+      data: {
+        ok: false,
+        refusal: result.refusal,
+        evaluation: evaluationToJson(result.evaluation),
+        balances: balancesToJson(result.balances),
+        dataMode: env.APP_DATA_MODE,
+        limits: {
+          maxMoveAtomic: limits.maxMoveAtomic.toString(),
+          maxDailyAtomic: limits.maxDailyAtomic.toString(),
+          dailyUsedAtomic: limits.dailyUsedAtomic.toString(),
         },
       },
-      { status: 409 },
-    );
+    };
+
+    if (idempotencyKey) {
+      await saveIdempotency({
+        userId: viewer.userId,
+        scope: "execution.prepare",
+        key: idempotencyKey,
+        hash,
+        response: { status: 409, body },
+      });
+    }
+
+    return NextResponse.json(body, { status: 409 });
   }
 
   const quote = await prisma.quote.create({
     data: {
-      userId: user.id,
+      userId: viewer.userId,
       provider: "1click",
       quoteReference: result.quote.correlationId,
       originAssetId: result.origin.assetId,
@@ -151,9 +224,18 @@ export async function POST(request: Request) {
     select: { id: true, createdAt: true },
   });
 
+  await prisma.quoteStatusEvent.create({
+    data: {
+      quoteId: quote.id,
+      providerStatus: "QUOTED",
+      localStatus: "quoted",
+      raw: { correlationId: result.quote.correlationId },
+    },
+  });
+
   await prisma.auditEvent.create({
     data: {
-      userId: user.id,
+      userId: viewer.userId,
       eventType: "execution.prepared",
       actorType: "user",
       referenceId: quote.id,
@@ -165,11 +247,12 @@ export async function POST(request: Request) {
         correlationId: result.quote.correlationId,
         deadline: result.quote.quote.deadline,
         minimumOutputAtomic: result.evaluation.minimumOutputAtomic.toString(),
+        walletAddress: parsed.data.walletAddress,
       },
     },
   });
 
-  return NextResponse.json({
+  const body = {
     data: {
       ok: true,
       quoteId: quote.id,
@@ -194,10 +277,27 @@ export async function POST(request: Request) {
       evaluation: evaluationToJson(result.evaluation),
       balances: balancesToJson(result.balances),
       dataMode: env.APP_DATA_MODE,
+      limits: {
+        maxMoveAtomic: limits.maxMoveAtomic.toString(),
+        maxDailyAtomic: limits.maxDailyAtomic.toString(),
+        dailyUsedAtomic: limits.dailyUsedAtomic.toString(),
+      },
     },
     meta: {
       source: "1click committed quote",
       note: "Committed quotes expire. The deposit must land before the deadline, and it settles one leg — not atomically.",
     },
-  });
+  };
+
+  if (idempotencyKey) {
+    await saveIdempotency({
+      userId: viewer.userId,
+      scope: "execution.prepare",
+      key: idempotencyKey,
+      hash,
+      response: { status: 200, body },
+    });
+  }
+
+  return NextResponse.json(body);
 }

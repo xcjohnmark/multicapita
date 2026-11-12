@@ -163,6 +163,16 @@ export function planDeterministicAllocation(input: {
   if (picks.length === 0) {
     return {
       proposal: {
+        strategyName: "Unallocated Guardrail Buffer",
+        category: "balanced",
+        summary: "No eligible opportunity passed the active guardrails; capital remains 100% liquid.",
+        howItWorks: [
+          "Screens all candidate opportunities against active risk caps.",
+          "Blocks execution when opportunities fail approval or concentration checks.",
+          "Preserves full capital in liquid wallet balances.",
+        ],
+        targetApy: 0,
+        decisionPoints: ["Capital preserved 100% liquid due to constraint bounds."],
         objectiveSummary:
           "No eligible opportunity passed the guardrails, so no capital was allocated.",
         legs: [],
@@ -209,8 +219,54 @@ export function planDeterministicAllocation(input: {
     );
   }
 
+  // Derive packaged strategy card attributes deterministically
+  const strategyTypes = new Set(picks.map((p) => p.opportunity.strategyType));
+  let category: "yielding" | "investing" | "tokenized_stock" | "arbitraging" | "liquidity" | "balanced" = "balanced";
+  let strategyName = "Balanced Multi-Chain Allocation";
+
+  if (strategyTypes.has("arbitrage")) {
+    category = "arbitraging";
+    strategyName = "Cross-Chain Spread & Yield Plan";
+  } else if (strategyTypes.has("stablecoin_lp") && strategyTypes.size === 1) {
+    category = "liquidity";
+    strategyName = "High-Fee Stablecoin Liquidity Strategy";
+  } else if (strategyTypes.has("yield_vault") || strategyTypes.has("lending")) {
+    category = "yielding";
+    strategyName = picks.length === 1
+      ? `${picks[0].opportunity.protocolName} Yield Strategy`
+      : "Multi-Chain Yield & Lending Strategy";
+  }
+
+  // Compute weighted target APY from selected opportunities
+  let weightedApySum = 0;
+  for (let i = 0; i < picks.length; i++) {
+    const opp = picks[i].opportunity;
+    const rate = opp.expectedRatePercent ?? 0;
+    const weight = rawWeights[i] ?? 0;
+    weightedApySum += (rate * weight) / 10_000;
+  }
+  const targetApy = Math.round(weightedApySum * 100) / 100;
+
+  const howItWorks = [
+    `Screens active on-chain markets on ${picks.map((p) => p.opportunity.chainName).filter((v, i, a) => a.indexOf(v) === i).join(" and ")}.`,
+    `Allocates capital while locking a strict ${guardrails.minLiquidPercent}% liquid reserve in your wallet.`,
+    `Enforces a maximum ${guardrails.maxProtocolExposurePercent}% protocol exposure cap to prevent concentration risk.`,
+    "Executes securely through non-custodial 1Click routes with protected slippage bounds.",
+  ];
+
+  const decisionPoints = [
+    `Guarantees ${guardrails.minLiquidPercent}% remains immediately accessible in undeployed capital.`,
+    `Diversifies across ${picks.length} independent protocol${picks.length === 1 ? "" : "s"}.`,
+  ];
+
   return {
     proposal: {
+      strategyName,
+      category,
+      summary: `Automated risk-adjusted allocation deploying into ${picks.length} verified candidate${picks.length === 1 ? "" : "s"} while reserving liquid capital.`,
+      howItWorks,
+      targetApy,
+      decisionPoints,
       objectiveSummary: `Deterministic allocation across ${picks.length} opportunit${picks.length === 1 ? "y" : "ies"}, ranked by risk-adjusted rate rather than headline APY.`,
       legs: picks.map((pick, index) => ({
         opportunityId: pick.opportunity.id,

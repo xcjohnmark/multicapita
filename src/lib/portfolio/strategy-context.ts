@@ -25,23 +25,17 @@ export function chainName(chainId: number): string {
   return getChain(chainId)?.name ?? `Chain ${chainId}`;
 }
 
-export async function loadStrategyContext(): Promise<StrategyContext | null> {
+export async function loadStrategyContext(userId: string): Promise<StrategyContext | null> {
   const prisma = getPrisma();
-
-  const user = await prisma.user.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!user) return null;
 
   const [snapshot, positions, opportunityRows, profile, protocols] = await Promise.all([
     prisma.portfolioSnapshot.findFirst({
-      where: { userId: user.id },
+      where: { userId },
       orderBy: { snapshotAt: "desc" },
       include: { balances: { include: { token: true } } },
     }),
     prisma.position.findMany({
-      where: { userId: user.id },
+      where: { userId },
       include: { protocol: true, receiptToken: true },
     }),
     prisma.opportunity.findMany({
@@ -49,7 +43,7 @@ export async function loadStrategyContext(): Promise<StrategyContext | null> {
       orderBy: { estimatedApy: "desc" },
     }),
     prisma.strategyProfile.findFirst({
-      where: { userId: user.id, isActive: true },
+      where: { userId, isActive: true },
       include: { constraints: true },
       orderBy: { createdAt: "asc" },
     }),
@@ -86,7 +80,7 @@ export async function loadStrategyContext(): Promise<StrategyContext | null> {
     : DEFAULT_GUARDRAILS;
 
   return {
-    userId: user.id,
+    userId,
     profileId: profile?.id ?? null,
     guardrails,
     opportunities,

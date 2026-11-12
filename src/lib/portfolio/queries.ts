@@ -1,4 +1,6 @@
+import { type Address } from "viem";
 import { getPrisma } from "@/lib/db/client";
+import { syncWalletPortfolio } from "./sync";
 
 export type AllocationSlice = {
   strategyType: string;
@@ -15,16 +17,16 @@ const STRATEGY_LABELS: Record<string, string> = {
   cash: "Available",
 };
 
-export async function getPortfolioOverview() {
+export async function getPortfolioOverview(userId: string) {
   const prisma = getPrisma();
 
-  const user = await prisma.user.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true, email: true },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, address: true },
   });
   if (!user) return null;
 
-  const snapshot = await prisma.portfolioSnapshot.findFirst({
+  let snapshot = await prisma.portfolioSnapshot.findFirst({
     where: { userId: user.id },
     orderBy: { snapshotAt: "desc" },
     include: {
@@ -34,6 +36,16 @@ export async function getPortfolioOverview() {
       },
     },
   });
+
+  // If the user has an on-chain address and no snapshot or a stale snapshot (> 60s),
+  // trigger a fresh multi-chain live read from RPC.
+  if (user.address && (!snapshot || Date.now() - snapshot.snapshotAt.getTime() > 60_000)) {
+    try {
+      snapshot = await syncWalletPortfolio(user.id, user.address as Address);
+    } catch {
+      // If live sync encounters RPC issues, fall back to existing snapshot without throwing
+    }
+  }
 
   const positions = await prisma.position.findMany({
     where: { userId: user.id },

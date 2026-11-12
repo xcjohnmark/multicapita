@@ -1,48 +1,77 @@
 @import "tailwindcss";
 
 /*
-  Design language: a trading desk, not a dashboard template.
-  - Near-black neutral canvas, one restrained accent, no gradients.
-  - Numbers always tabular so columns align and deltas read instantly.
-  - Borders carry structure; shadows are minimal and only for overlays.
+  Capita Design System — Platform-Specific (replicates near.com/home #dashboard in White Mode):
+  - Pure white canvas (#FFFFFF), crisp slate surfaces (#F9FAFB / #F3F4F6), 1px gray-200 borders.
+  - Figtree primary typography (16px base, antialiased, tracking-tight) + JetBrains Mono tabular figures.
+  - Platform radii: 8px (rounded-lg) controls/buttons, 12px (rounded-xl) cards/nav, 16px (rounded-2xl) modals.
+  - Platform accents: green-500 (#22C55E) selection & positive signals, yellow-200/50 signature icon highlight.
+  - Micro-interactions: 100ms cubic-bezier(0.4, 0, 0.2, 1), active scale-[0.97], data-loading lock.
 */
 
 @theme {
-  --color-canvas: #0a0c0f;
-  --color-surface: #11151a;
-  --color-surface-raised: #171c23;
-  --color-line: #232b35;
-  --color-line-strong: #33404e;
+  /* White Mode Canvas & Surfaces */
+  --color-canvas: #ffffff;
+  --color-surface: #f9fafb;
+  --color-surface-raised: #f3f4f6;
+  --color-surface-hover: rgba(17, 24, 39, 0.04);
+  --color-surface-invert: #111827;
 
-  --color-ink: #e8eef5;
-  --color-ink-muted: #93a1b1;
-  --color-ink-faint: #66757f;
+  /* Lines & Borders */
+  --color-line: #e5e7eb;
+  --color-line-strong: #d1d5db;
+  --color-line-faint: #f3f4f6;
 
-  --color-accent: #4ade80;
-  --color-accent-ink: #04170c;
-  --color-warn: #f5b544;
-  --color-danger: #f2555a;
-  --color-info: #63b3ed;
+  /* Ink (Typography Hierarchy) */
+  --color-ink: #111827;
+  --color-ink-secondary: #4b5563;
+  --color-ink-muted: #6b7280;
+  --color-ink-faint: #9ca3af;
+  --color-ink-invert: #ffffff;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  /* Brand & Semantic Accents (near.com/home platform tokens) */
+  --color-accent: #22c55e;
+  --color-accent-hover: #16a34a;
+  --color-accent-ink: #000000;
+  --color-accent-text: #15803d;
+  --color-highlight: rgba(254, 240, 138, 0.5);
+  --color-highlight-hover: #fef08a;
+  --color-highlight-ink: #a16207;
+  --color-highlight-outline: #eab308;
+  --color-blue: #0091fd;
+  --color-blue-light: #83dcff;
+  --color-warn: #f59e0b;
+  --color-warn-text: #b45309;
+  --color-danger: #ef4444;
+  --color-danger-text: #dc2626;
+  --color-info: #0091fd;
 
-  --radius-panel: 10px;
+  /* Typography */
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", "Cascadia Mono", Menlo,
+    Consolas, monospace;
+
+  /* Platform Radii */
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --radius-modal: 16px;
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
     -webkit-text-size-adjust: 100%;
+    font-size: 16px;
   }
 
   body {
     background-color: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-feature-settings: "cv02", "cv03", "cv04";
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Financial figures must never jitter between renders. */
@@ -54,13 +83,13 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
-    border-radius: 4px;
   }
 
   hr {
@@ -69,7 +98,34 @@
 }
 
 @layer components {
+  /* 3D Mosaic Flip Engine (used by header visual showcases) */
+  .landing-mosaic-flip {
+    transform-style: preserve-3d;
+    animation: 0.75s cubic-bezier(0.645, 0.045, 0.355, 1) both landingMosaicFlip;
+  }
+  .landing-mosaic-face {
+    backface-visibility: hidden;
+  }
+  .landing-mosaic-back {
+    transform: rotateY(180deg);
+  }
+
+  @keyframes landingMosaicFlip {
+    0% {
+      transform: rotateY(0deg);
+    }
+    100% {
+      transform: rotateY(180deg);
+    }
+  }
+
   .panel {
+    background-color: var(--color-canvas);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+  }
+
+  .panel-inset {
     background-color: var(--color-surface);
     border: 1px solid var(--color-line);
     border-radius: var(--radius-panel);
@@ -80,80 +136,219 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.875rem 1rem;
+    padding: 0.875rem 1.25rem;
     border-bottom: 1px solid var(--color-line);
   }
 
   .eyebrow {
     font-size: 0.6875rem;
     line-height: 1rem;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--color-ink-faint);
+    color: var(--color-ink-muted);
     font-weight: 600;
   }
 
   .metric {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
 
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    border: 1px solid var(--color-line-strong);
+    border: 1px solid var(--color-line);
+    background-color: var(--color-surface);
     border-radius: 999px;
-    padding: 0.125rem 0.5rem;
-    font-size: 0.6875rem;
-    line-height: 1.25rem;
-    color: var(--color-ink-muted);
+    padding: 0.1875rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+    color: var(--color-ink-secondary);
     white-space: nowrap;
+    font-weight: 500;
+    letter-spacing: -0.01em;
   }
 
+  /* Platform button baseline (near.com/home signature: 8px radius, leading-none, 100ms scale-[0.97]) */
   .btn {
+    position: relative;
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     border: 1px solid var(--color-line-strong);
-    background: var(--color-surface-raised);
+    background: var(--color-canvas);
     color: var(--color-ink);
-    padding: 0.5rem 0.875rem;
+    padding: 0.5625rem 0.875rem;
     font-size: 0.875rem;
     font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.015em;
+    cursor: pointer;
     transition:
-      background-color 120ms ease,
-      border-color 120ms ease,
-      transform 120ms ease;
+      transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
+      background-color 100ms cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 100ms cubic-bezier(0.4, 0, 0.2, 1),
+      color 100ms cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 100ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .btn:hover {
-    background: #1d242c;
-    border-color: #3f4d5c;
+  .btn:hover:not(:disabled) {
+    background: var(--color-surface);
+    border-color: var(--color-ink-faint);
   }
 
-  .btn:active {
-    transform: translateY(1px);
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
   }
 
   .btn-primary {
+    background: var(--color-ink);
+    border-color: var(--color-ink);
+    color: var(--color-ink-invert);
+    font-weight: 500;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #1f2937;
+    border-color: #1f2937;
+  }
+
+  .btn-accent {
     background: var(--color-accent);
     border-color: var(--color-accent);
     color: var(--color-accent-ink);
     font-weight: 600;
   }
 
-  .btn-primary:hover {
-    background: #6ee79b;
-    border-color: #6ee79b;
+  .btn-accent:hover:not(:disabled) {
+    background: #4ade80;
+    border-color: #4ade80;
   }
 
-  .btn:disabled {
-    opacity: 0.45;
+  .btn-accent:focus-visible {
+    outline-color: var(--color-accent-text);
+  }
+
+  /* Signature near.com/home yellow-tinted interactive action button */
+  .btn-highlight {
+    background: var(--color-highlight);
+    border-color: transparent;
+    color: var(--color-highlight-ink);
+    outline-color: var(--color-highlight-outline);
+  }
+
+  .btn-highlight:hover:not(:disabled) {
+    background: var(--color-highlight-hover);
+    border-color: transparent;
+  }
+
+  .btn-highlight:focus-visible {
+    outline-color: var(--color-highlight-outline);
+  }
+
+  .btn-secondary {
+    background: var(--color-canvas);
+    border-color: var(--color-line-strong);
+    color: var(--color-ink);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--color-surface);
+    border-color: var(--color-ink-faint);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-ink-secondary);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--color-surface-hover);
+    border-color: transparent;
+    color: var(--color-ink);
+  }
+
+  .btn-danger {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+    color: #ffffff;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-danger-text);
+    border-color: var(--color-danger-text);
+  }
+
+  .btn-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+  }
+
+  .btn:disabled,
+  .btn[data-loading="true"] {
+    opacity: 0.4;
     cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn[data-loading="true"] {
+    pointer-events: none;
+  }
+
+  /* Platform sidebar navigation link (near.com/home: h-11, rounded-xl, px-2.5, gap-3) */
+  .nav-link {
+    position: relative;
+    display: flex;
+    height: 2.75rem;
+    flex: 1 1 0%;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: var(--radius-panel);
+    padding-left: 0.625rem;
+    padding-right: 0.625rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--color-ink-secondary);
+    transition:
+      background-color 100ms cubic-bezier(0.4, 0, 0.2, 1),
+      color 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-link:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-ink);
+  }
+
+  .nav-link:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: -2px;
+  }
+
+  .nav-link[aria-current="page"] {
+    background-color: var(--color-surface-raised);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .nav-link {
+    transition: none;
+  }
+  .btn:active:not(:disabled) {
     transform: none;
   }
 }

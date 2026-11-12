@@ -232,6 +232,10 @@ export async function prepareMove(input: {
   /** Origin token decimals from the 1Click catalogue, used for the minimum move threshold. */
   decimals: number;
   dataMode?: string;
+  disabledReason?: string | null;
+  maxMoveAtomic?: bigint;
+  maxDailyAtomic?: bigint;
+  dailyUsedAtomic?: bigint;
   now?: Date;
 }): Promise<PreparedMoveResult> {
   const dataMode = input.dataMode ?? env.APP_DATA_MODE;
@@ -251,6 +255,10 @@ export async function prepareMove(input: {
     requestedAmountAtomic: input.amountAtomic,
     approvedAmountAtomic: input.approvedAmountAtomic,
     evaluationOk: preview.evaluation.ok,
+    disabledReason: input.disabledReason,
+    maxMoveAtomic: input.maxMoveAtomic,
+    maxDailyAtomic: input.maxDailyAtomic,
+    dailyUsedAtomic: input.dailyUsedAtomic,
   });
 
   if (refusal !== null) {

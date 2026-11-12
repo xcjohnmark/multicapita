@@ -109,6 +109,22 @@ describe("proposeStrategy without credentials", () => {
     expect(result.modelId).toBeNull();
     expect(result.evaluation.ok).toBe(true);
     expect(result.trace.some((t) => t.step === "fallback")).toBe(true);
+    expect(result.proposal.strategyName).toBeTruthy();
+    expect(result.proposal.category).toBe("yielding");
+    expect(result.proposal.howItWorks.length).toBeGreaterThan(0);
+    expect(result.proposal.targetApy).toBeGreaterThan(0);
+  });
+
+  it("populates packaged strategy card attributes and deterministic target APY for model plans", async () => {
+    const client = fakeClient([completion(VALID_PLAN)]);
+    const result = await proposeStrategy(baseInput(client));
+
+    expect(result.source).toBe("model");
+    expect(result.proposal.strategyName).toBeTruthy();
+    expect(result.proposal.category).toBe("yielding");
+    expect(result.proposal.howItWorks.length).toBeGreaterThan(0);
+    // Weighted APY: 50% * 4.82% + 50% * 5.1% = 2.41 + 2.55 = 4.96%
+    expect(result.proposal.targetApy).toBe(4.96);
   });
 
   it("still produces a usable plan when the objective is hostile text", async () => {

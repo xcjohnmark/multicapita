@@ -8,11 +8,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# AI Cross-Chain Portfolio Operator
+# Capita — AI Cross-Chain Portfolio Operator
 
-Cross-chain DeFi portfolio operator for the NEAR hackathon (`defi` track).
-`project-docs/prd.md` is the product source of truth. `project-docs/blueprint.md` governs
-submission style only — it describes a different product and must not drive scope.
+Production cross-chain DeFi & RWA portfolio operator platform.
+`project-docs/prd.md` and `project-docs/build-guide.md` are the product and engineering sources
+of truth. `project-docs/blueprint.md` is archival reference only and must not drive scope.
 
 ## Non-negotiable product rules
 

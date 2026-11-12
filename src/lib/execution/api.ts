@@ -33,7 +33,7 @@ export const moveBodySchema = z.object({
 export type MoveBody = z.infer<typeof moveBodySchema>;
 
 /** Guardrails from the active strategy profile, falling back to the documented defaults. */
-export async function loadGuardrails(): Promise<Guardrails> {
-  const context = await loadStrategyContext();
+export async function loadGuardrails(userId: string): Promise<Guardrails> {
+  const context = await loadStrategyContext(userId);
   return context?.guardrails ?? { ...DEFAULT_GUARDRAILS };
 }

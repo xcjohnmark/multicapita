@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getChain } from "@/lib/chains";
+import { getViewer, viewerOwnsAddress } from "@/lib/auth/viewer";
 import { loadGuardrails, moveBodySchema } from "@/lib/execution/api";
+import { loadExecutionLimits } from "@/lib/execution/limits";
 import { parseMoveAmount, previewMove, balancesToJson, evaluationToJson } from "@/lib/execution/move";
+import { isSameOrigin } from "@/lib/http/origin";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -13,13 +16,25 @@ export const dynamic = "force-dynamic";
  * Always `dry: true`: it never creates a deposit address, never persists anything, and never
  * asks for a signature. It exists so the whole flow is inspectable without live mode, and so the
  * guardrails can be evaluated before a committed quote is ever requested.
+ *
+ * It still requires a viewer: the wallet being previewed must be the wallet the session signed in
+ * with. Previewing someone else's address would leak their balances and teach the UI to trust an
+ * address it does not own.
  */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: { message: "Cross-origin request refused." } }, { status: 403 });
+  }
   if (rateLimited(clientKey(request), { max: 30 })) {
     return NextResponse.json(
       { error: { message: "Too many preview requests. Try again in a minute." } },
       { status: 429 },
     );
+  }
+
+  const viewer = await getViewer();
+  if (!viewer) {
+    return NextResponse.json({ error: { message: "Sign in to preview a move." } }, { status: 401 });
   }
 
   let payload: unknown;
@@ -45,10 +60,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const amount = parseMoveAmount(
-    parsed.data.amount,
-    getChain(parsed.data.fromChainId)?.usdc.decimals ?? 6,
-  );
+  if (!viewerOwnsAddress(viewer, parsed.data.walletAddress)) {
+    return NextResponse.json(
+      {
+        error: {
+          message:
+            "The connected wallet is not the wallet this session signed in with. Sign in again with the wallet you intend to move funds from.",
+        },
+      },
+      { status: 403 },
+    );
+  }
+
+  const decimals = getChain(parsed.data.fromChainId)?.usdc.decimals ?? 6;
+  const amount = parseMoveAmount(parsed.data.amount, decimals);
   if (!amount) {
     return NextResponse.json(
       { error: { message: "Amount could not be converted exactly to atomic units." } },
@@ -57,7 +82,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const guardrails = await loadGuardrails();
+    const [guardrails, limits] = await Promise.all([
+      loadGuardrails(viewer.userId),
+      loadExecutionLimits({ userId: viewer.userId, decimals }),
+    ]);
     const preview = await previewMove({
       fromChainId: parsed.data.fromChainId,
       toChainId: parsed.data.toChainId,
@@ -78,8 +106,15 @@ export async function POST(request: Request) {
         balances: balancesToJson(preview.balances),
         chainErrors: preview.balances.errors,
         guardrails,
+        limits: {
+          maxMoveAtomic: limits.maxMoveAtomic.toString(),
+          maxDailyAtomic: limits.maxDailyAtomic.toString(),
+          dailyUsedAtomic: limits.dailyUsedAtomic.toString(),
+          disabledReason: limits.disabledReason,
+        },
         dataMode: env.APP_DATA_MODE,
-        executionEnabled: env.APP_DATA_MODE === "live",
+        executionEnabled: env.APP_DATA_MODE === "live" && !limits.disabled,
+        demoSession: viewer.demo,
       },
       meta: {
         source: "1click dry quote + chain rpc",

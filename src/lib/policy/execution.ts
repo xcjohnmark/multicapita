@@ -58,7 +58,7 @@ export type MoveEvaluation = {
  * "no liquidity". Expressed in whole tokens so the atomic threshold is derived from the token's
  * own decimals rather than assuming six.
  */
-export const MIN_MOVE_UNITS = 10;
+export const MIN_MOVE_UNITS = 5;
 
 export function minMoveAtomic(decimals: number): bigint {
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) {
@@ -174,7 +174,15 @@ export function assertExecutionAllowed(input: {
   requestedAmountAtomic: bigint;
   approvedAmountAtomic: bigint;
   evaluationOk: boolean;
+  /** Runtime kill switch. A reason string means execution is disabled. */
+  disabledReason?: string | null;
+  maxMoveAtomic?: bigint;
+  maxDailyAtomic?: bigint;
+  dailyUsedAtomic?: bigint;
 }): string | null {
+  if (input.disabledReason) {
+    return input.disabledReason;
+  }
   if (input.dataMode !== "live") {
     return `Execution is disabled while APP_DATA_MODE is "${input.dataMode}". Live deposits are only possible in live mode.`;
   }
@@ -186,6 +194,16 @@ export function assertExecutionAllowed(input: {
   }
   if (input.requestedAmountAtomic !== input.approvedAmountAtomic) {
     return "The amount being executed does not match the amount that was approved.";
+  }
+  if (input.maxMoveAtomic !== undefined && input.requestedAmountAtomic > input.maxMoveAtomic) {
+    return `The move exceeds the per-transaction cap of ${input.maxMoveAtomic} atomic units.`;
+  }
+  if (
+    input.maxDailyAtomic !== undefined &&
+    input.dailyUsedAtomic !== undefined &&
+    input.dailyUsedAtomic + input.requestedAmountAtomic > input.maxDailyAtomic
+  ) {
+    return `The move would exceed the 24-hour cap of ${input.maxDailyAtomic} atomic units.`;
   }
   return null;
 }

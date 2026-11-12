@@ -2,8 +2,10 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { ArrowRight, Loader2, RefreshCw, ShieldCheck, Wallet } from "lucide-react";
 import { formatAtomic } from "@/lib/finance/amounts";
 import "@/lib/wallet/provider";
+import { ensureWalletChain } from "@/lib/wallet/chain-switch";
 import { shortenMiddle } from "@/lib/format";
 import { StatusDot } from "@/components/ui/primitives";
 
@@ -11,14 +13,9 @@ import { StatusDot } from "@/components/ui/primitives";
  * Cross-chain execution console.
  *
  * Two modes, clearly separated:
- *  - **Preview** works everywhere. It is a dry quote plus live balances plus a guardrail verdict.
- *    Nothing is persisted and no deposit address is created.
- *  - **Prepare** only works in live mode, requires an explicit approval that restates the exact
- *    amount, and returns a deposit instruction the wallet must sign. A policy pass is not an
- *    approval, and the UI says so.
- *
- * The money path is never automatic: the wallet signs, the user pastes the hash, the user asks
- * for the status. Each step is independently confirmed.
+ *  - Preview works everywhere: dry quote + live balances + deterministic guardrail verdict.
+ *  - Prepare only works in live mode, requires explicit approval, and returns a deposit
+ *    instruction the wallet must sign.
  */
 
 type Direction = "base-to-arb" | "arb-to-base";
@@ -118,14 +115,17 @@ export function ExecuteMove() {
   const [depositSubmitted, setDepositSubmitted] = useState(false);
   const [status, setStatus] = useState<StatusResponse | null>(null);
 
-  useEffect(() => {
+  const paramKey = `${paramDirection ?? ""}|${paramAmount ?? ""}`;
+  const [prevParamKey, setPrevParamKey] = useState(paramKey);
+  if (paramKey !== prevParamKey) {
+    setPrevParamKey(paramKey);
     if (paramDirection === "base-to-arb" || paramDirection === "arb-to-base") {
       setDirection(paramDirection);
     }
     if (paramAmount && !Number.isNaN(Number(paramAmount)) && Number(paramAmount) > 0) {
       setAmount(paramAmount);
     }
-  }, [paramDirection, paramAmount]);
+  }
 
   const fromChainId = direction === "base-to-arb" ? 8453 : 42161;
   const toChainId = direction === "base-to-arb" ? 42161 : 8453;
@@ -231,13 +231,22 @@ export function ExecuteMove() {
       return;
     }
     setError(null);
+
+    // Verify origin network and prompt wallet switch if needed before execution
+    const chainCheck = await ensureWalletChain(prepared.instruction.chainId);
+    if (!chainCheck.ok) {
+      setError(chainCheck.error ?? "Failed to switch to origin network.");
+      return;
+    }
+
     try {
+      const targetAddress = prepared.instruction.tokenAddress ?? prepared.instruction.to;
       const hash = (await provider.request({
         method: "eth_sendTransaction",
         params: [
           {
             from: walletAddress,
-            to: prepared.instruction.to,
+            to: targetAddress,
             data: prepared.instruction.data,
             value: `0x${BigInt(prepared.instruction.value).toString(16)}`,
           },
@@ -245,12 +254,27 @@ export function ExecuteMove() {
       })) as string;
       if (typeof hash === "string" && hash.startsWith("0x")) {
         setTxHash(hash);
+        // Automatically submit deposit notification to 1Click
+        try {
+          const subResult = await post<{ transactionId: string }>("/api/execution/deposit", {
+            quoteId: prepared.quoteId,
+            txHash: hash,
+          });
+          if (subResult.ok) {
+            setDepositSubmitted(true);
+            await refreshStatus();
+          }
+        } catch {
+          // User can still use the manual submit button if auto-submit fails
+        }
       } else {
         setError("The wallet did not return a transaction hash.");
       }
     } catch (cause) {
       const code = (cause as { code?: number } | undefined)?.code;
-      setError(code === 4001 ? "The transaction was rejected in the wallet." : "The wallet refused the transaction.");
+      setError(
+        code === 4001 ? "The transaction was rejected in the wallet." : "The wallet refused the transaction.",
+      );
     }
   }
 
@@ -281,6 +305,18 @@ export function ExecuteMove() {
     else setError(json.error?.message ?? "Status read failed.");
   }
 
+  // Automatic real-time status polling until terminal settlement
+  useEffect(() => {
+    if (!prepared || !prepared.ok || !depositSubmitted) return;
+    if (status?.isTerminal) return;
+
+    const interval = setInterval(() => {
+      refreshStatus();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [prepared, depositSubmitted, status?.isTerminal]);
+
   const executionEnabled = preview?.executionEnabled ?? false;
   const displayAmount = preview ? formatAtomic(preview.amountAtomic, USDC) : amount;
 
@@ -291,27 +327,45 @@ export function ExecuteMove() {
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Move</p>
-              <h2 className="text-sm font-semibold">Cross-chain USDC move</h2>
+              <h2 className="text-base font-medium tracking-tight text-ink">
+                Cross-chain USDC move
+              </h2>
             </div>
-            <span className="chip">
-              <StatusDot tone={preview?.evaluation.ok ? "ok" : "idle"} />
-              {preview ? (preview.evaluation.ok ? "Guardrails passed" : "Guardrails failed") : "Not checked"}
+            <span
+              className={`chip ${
+                preview
+                  ? preview.evaluation.ok
+                    ? "border-green-200 bg-green-50 text-accent-text"
+                    : "border-red-200 bg-red-50 text-danger-text"
+                  : ""
+              }`}
+            >
+              <StatusDot
+                tone={preview ? (preview.evaluation.ok ? "ok" : "error") : "idle"}
+              />
+              {preview
+                ? preview.evaluation.ok
+                  ? "Guardrails passed"
+                  : "Guardrails failed"
+                : "Not checked"}
             </span>
           </div>
 
-          <div className="space-y-4 px-4 py-4">
+          <div className="space-y-4 px-5 py-4">
             <div>
-              <p className="eyebrow mb-1.5">Direction</p>
+              <p className="eyebrow mb-2">Direction</p>
               <div className="grid grid-cols-2 gap-2">
                 <DirectionButton
                   active={direction === "base-to-arb"}
                   onClick={() => setDirection("base-to-arb")}
-                  label="Base → Arbitrum"
+                  from="Base"
+                  to="Arbitrum"
                 />
                 <DirectionButton
                   active={direction === "arb-to-base"}
                   onClick={() => setDirection("arb-to-base")}
-                  label="Arbitrum → Base"
+                  from="Arbitrum"
+                  to="Base"
                 />
               </div>
             </div>
@@ -326,7 +380,7 @@ export function ExecuteMove() {
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
                   inputMode="decimal"
-                  className="w-full rounded-md border border-line bg-canvas px-3 py-2 text-sm text-ink"
+                  className="h-10 w-full rounded-lg border border-line-strong bg-canvas px-3 font-mono text-sm text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
                   placeholder="100"
                 />
               </div>
@@ -339,31 +393,48 @@ export function ExecuteMove() {
                     id="walletAddress"
                     value={walletAddress}
                     onChange={(event) => setWalletAddress(event.target.value)}
-                    className="w-full rounded-md border border-line bg-canvas px-3 py-2 font-mono text-xs text-ink"
+                    className="h-10 w-full rounded-lg border border-line-strong bg-canvas px-3 font-mono text-xs text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
                     placeholder="0x…"
                   />
-                  <button type="button" onClick={connect} className="btn h-9 shrink-0 px-3 text-xs">
-                    Connect
+                  <button
+                    type="button"
+                    onClick={connect}
+                    aria-label="Connect injected wallet"
+                    title="Connect wallet"
+                    className="btn btn-highlight btn-icon h-10 w-10 shrink-0 [&_svg:not([class*='size-'])]:size-5"
+                  >
+                    <Wallet className="size-5" strokeWidth={1.5} aria-hidden />
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="max-w-xl text-xs text-ink-faint">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <p className="max-w-xl text-xs text-ink-muted">
                 A preview is a dry quote: no deposit address, nothing signed. Execution needs live
-                mode, an explicit approval and a wallet signature.
+                mode, an explicit approval, and a wallet signature.
               </p>
-              <button type="submit" className="btn btn-primary" disabled={pending !== null}>
-                {pending === "preview" ? "Previewing…" : "Preview move"}
+              <button
+                type="submit"
+                className="btn btn-primary h-9 px-4 text-sm"
+                disabled={pending !== null}
+                data-loading={pending === "preview" ? "true" : undefined}
+              >
+                {pending === "preview" ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={1.5} aria-hidden />
+                ) : null}
+                <span>{pending === "preview" ? "Previewing…" : "Preview move"}</span>
               </button>
             </div>
           </div>
         </form>
 
         {error ? (
-          <div className="rounded-panel border border-danger/30 bg-danger/[0.06] px-4 py-3 text-sm text-ink">
-            <span className="font-semibold text-danger">Failed. </span>
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-ink"
+          >
+            <span className="font-semibold text-danger-text">Failed. </span>
             {error}
           </div>
         ) : null}
@@ -373,14 +444,16 @@ export function ExecuteMove() {
             <div className="panel-header">
               <div>
                 <p className="eyebrow mb-1">Preview</p>
-                <h2 className="text-sm font-semibold">Dry quote and live balances</h2>
+                <h2 className="text-base font-medium tracking-tight text-ink">
+                  Dry quote and live balances
+                </h2>
               </div>
-              <span className="chip border-warn/30 text-warn">
-                <StatusDot tone="warn" /> Dry run
+              <span className="chip border-blue-200 bg-blue-50 text-blue-700">
+                <StatusDot tone="info" /> Dry run
               </span>
             </div>
 
-            <dl className="grid gap-x-6 gap-y-2.5 px-4 py-4 text-xs sm:grid-cols-2">
+            <dl className="grid gap-x-6 gap-y-2.5 px-5 py-4 text-xs sm:grid-cols-2">
               <Row label="You send" value={`${formatAtomic(preview.amountAtomic, USDC)} USDC`} />
               <Row
                 label="Expected out"
@@ -399,20 +472,22 @@ export function ExecuteMove() {
             </dl>
 
             {preview.chainErrors.length > 0 ? (
-              <p className="border-t border-line px-4 py-3 text-xs text-warn">
+              <p className="border-t border-line bg-amber-50/60 px-5 py-3 text-xs text-amber-800">
                 Some chains could not be read: {preview.chainErrors.join("; ")}
               </p>
             ) : null}
 
             {preview.evaluation.violations.length > 0 ? (
-              <div className="border-t border-line px-4 py-3">
+              <div className="border-t border-line px-5 py-3">
                 <p className="eyebrow mb-1.5">Guardrail findings</p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {preview.evaluation.violations.map((violation) => (
-                    <li key={violation.code} className="flex gap-2 text-xs">
-                      <StatusDot tone={violation.severity === "error" ? "error" : "warn"} />
-                      <span className="text-ink-muted">
-                        <span className="font-mono text-[10px] uppercase text-ink-faint">
+                    <li key={violation.code} className="flex items-start gap-2 text-xs">
+                      <span className="mt-1.5 shrink-0">
+                        <StatusDot tone={violation.severity === "error" ? "error" : "warn"} />
+                      </span>
+                      <span className="text-ink-secondary">
+                        <span className="font-mono text-[10px] uppercase text-ink-muted">
                           {violation.code}
                         </span>{" "}
                         {violation.message}
@@ -423,8 +498,8 @@ export function ExecuteMove() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3">
-              <p className="max-w-md text-[11px] text-ink-faint">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3.5">
+              <p className="max-w-md text-xs text-ink-muted">
                 To request a committed quote, prepare the move. That requires live mode and the
                 explicit approval below.
               </p>
@@ -432,17 +507,23 @@ export function ExecuteMove() {
                 type="button"
                 onClick={runPrepare}
                 disabled={!executionEnabled || !preview.evaluation.ok || pending !== null}
-                className="btn btn-primary"
+                data-loading={pending === "prepare" ? "true" : undefined}
+                className="btn btn-accent h-9 px-4 text-sm"
               >
-                {pending === "prepare"
-                  ? "Preparing…"
-                  : executionEnabled
-                    ? "Prepare move"
-                    : "Execution disabled"}
+                {pending === "prepare" ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={1.5} aria-hidden />
+                ) : null}
+                <span>
+                  {pending === "prepare"
+                    ? "Preparing…"
+                    : executionEnabled
+                      ? "Prepare move"
+                      : "Execution disabled"}
+                </span>
               </button>
             </div>
 
-            <p className="border-t border-line px-4 py-3 text-[11px] text-ink-faint">
+            <p className="border-t border-line bg-surface px-5 py-3 text-[11px] text-ink-muted">
               Read from a 1Click dry quote and live RPC balances. No funds move in this step.
             </p>
           </section>
@@ -454,34 +535,43 @@ export function ExecuteMove() {
               <div className="panel-header">
                 <div>
                   <p className="eyebrow mb-1">Prepared</p>
-                  <h2 className="text-sm font-semibold">Deposit instruction</h2>
+                  <h2 className="text-base font-medium tracking-tight text-ink">
+                    Deposit instruction
+                  </h2>
                 </div>
-                <span className="chip border-accent/30 text-accent">
-                  <StatusDot tone="ok" /> Awaiting signature
+                <span className="chip border-green-200 bg-green-50 text-accent-text">
+                  <StatusDot tone="ok" pulse /> Awaiting signature
                 </span>
               </div>
 
-              <dl className="grid gap-x-6 gap-y-2.5 px-4 py-4 text-xs">
+              <dl className="grid gap-x-6 gap-y-2.5 px-5 py-4 text-xs">
                 <Row label="Quote" value={prepared.quote.correlationId || "—"} />
                 <Row
                   label="Deposit"
                   value={`${formatAtomic(prepared.instruction.amountAtomic, USDC)} ${prepared.instruction.tokenSymbol}`}
                 />
-                <Row label="To deposit address" value={shortenMiddle(prepared.instruction.to, 10, 6)} />
+                <Row
+                  label="To deposit address"
+                  value={shortenMiddle(prepared.instruction.to, 10, 6)}
+                />
                 <Row
                   label="Deadline"
-                  value={prepared.quote.deadline ? new Date(prepared.quote.deadline).toISOString() : "not stated"}
+                  value={
+                    prepared.quote.deadline
+                      ? new Date(prepared.quote.deadline).toISOString()
+                      : "not stated"
+                  }
                 />
                 <Row label="Explorer" value={prepared.instruction.explorerUrl} />
               </dl>
 
-              <div className="space-y-3 border-t border-line px-4 py-4">
-                <label className="flex items-start gap-2 text-xs text-ink-muted">
+              <div className="space-y-3 border-t border-line px-5 py-4">
+                <label className="flex items-start gap-2.5 text-xs text-ink-secondary">
                   <input
                     type="checkbox"
                     checked={approved}
                     onChange={(event) => setApproved(event.target.checked)}
-                    className="mt-0.5"
+                    className="mt-0.5 size-4 rounded border-line-strong accent-green-600"
                   />
                   <span>
                     I explicitly approve moving exactly {displayAmount} USDC from my wallet to this
@@ -490,47 +580,103 @@ export function ExecuteMove() {
                 </label>
 
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={signAndSend} className="btn btn-primary" disabled={!approved}>
-                    Sign and send deposit
+                  <button
+                    type="button"
+                    onClick={signAndSend}
+                    className="btn btn-accent h-9 px-4 text-sm"
+                    disabled={!approved}
+                  >
+                    <ShieldCheck className="size-4" strokeWidth={1.5} aria-hidden />
+                    <span>Sign and send deposit</span>
                   </button>
                   {txHash ? (
                     <button
                       type="button"
                       onClick={submitDeposit}
-                      className="btn"
+                      className="btn btn-secondary h-9 px-3.5 text-sm"
                       disabled={depositSubmitted}
                     >
                       {depositSubmitted ? "Deposit submitted" : "Submit deposit to 1Click"}
                     </button>
                   ) : null}
                   {depositSubmitted ? (
-                    <button type="button" onClick={refreshStatus} className="btn">
-                      Check status
+                    <button
+                      type="button"
+                      onClick={refreshStatus}
+                      className="btn btn-secondary h-9 px-3.5 text-sm"
+                    >
+                      <RefreshCw className="size-3.5" strokeWidth={1.5} aria-hidden />
+                      <span>Check status</span>
                     </button>
                   ) : null}
                 </div>
 
                 {txHash ? (
-                  <p className="font-mono text-[11px] break-all text-ink-faint">{txHash}</p>
+                  <div className="rounded-lg border border-line bg-surface p-3 text-xs">
+                    <p className="font-medium text-ink">Origin transaction submitted</p>
+                    <a
+                      href={`${prepared.instruction.explorerUrl}/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-blue-600 hover:underline break-all"
+                    >
+                      {txHash} ↗
+                    </a>
+                  </div>
                 ) : null}
 
                 {status ? (
-                  <div className="rounded-md border border-line bg-canvas px-3 py-2.5 text-xs">
-                    <p className="text-ink">
-                      Status: <span className="font-mono">{status.status}</span>
-                      {status.isTerminal ? " (terminal)" : " (still settling)"}
-                    </p>
-                    <p className="mt-1 text-ink-faint">
-                      Terminal states: {status.terminalStates.join(", ")}
+                  <div className="rounded-lg border border-line bg-surface px-3.5 py-2.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium text-ink">
+                        Status: <span className="font-mono font-semibold">{status.status}</span>
+                        {status.isTerminal ? " (settled)" : " (in progress)"}
+                      </p>
+                      <StatusDot
+                        tone={
+                          status.status === "SUCCESS"
+                            ? "ok"
+                            : status.isTerminal
+                              ? "error"
+                              : "warn"
+                        }
+                        pulse={!status.isTerminal}
+                      />
+                    </div>
+                    {status.status === "SUCCESS" ? (
+                      <div className="mt-2 text-green-700 bg-green-50 p-2 rounded border border-green-200">
+                        <p className="font-medium">Cross-chain move completed successfully.</p>
+                        <p className="mt-0.5 text-[11px]">
+                          Funds delivered to destination address{" "}
+                          <span className="font-mono">{shortenMiddle(walletAddress, 6, 4)}</span> on{" "}
+                          {direction === "base-to-arb" ? "Arbitrum" : "Base"}.
+                        </p>
+                        <a
+                          href={
+                            direction === "base-to-arb"
+                              ? `https://arbiscan.io/address/${walletAddress}#tokentxns`
+                              : `https://basescan.org/address/${walletAddress}#tokentxns`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-block text-[11px] text-blue-600 hover:underline font-medium"
+                        >
+                          View destination balance on{" "}
+                          {direction === "base-to-arb" ? "Arbiscan" : "BaseScan"} ↗
+                        </a>
+                      </div>
+                    ) : null}
+                    <p className="mt-2 text-[11px] text-ink-muted">
+                      Expected flow: PENDING_DEPOSIT → KNOWN_DEPOSIT_TX → PROCESSING → SUCCESS
                     </p>
                     {status.updatedAt ? (
-                      <p className="mt-1 text-ink-faint">Updated {status.updatedAt}</p>
+                      <p className="mt-1 text-[11px] text-ink-muted">Updated {status.updatedAt}</p>
                     ) : null}
                   </div>
                 ) : null}
               </div>
 
-              <p className="border-t border-line px-4 py-3 text-[11px] text-ink-faint">
+              <p className="border-t border-line bg-surface px-5 py-3 text-[11px] text-ink-muted">
                 Committed quotes expire. If the deposit does not arrive in time the quote is
                 abandoned and nothing moves.
               </p>
@@ -540,20 +686,24 @@ export function ExecuteMove() {
               <div className="panel-header">
                 <div>
                   <p className="eyebrow mb-1">Refused</p>
-                  <h2 className="text-sm font-semibold">Execution was not prepared</h2>
+                  <h2 className="text-base font-medium tracking-tight text-ink">
+                    Execution was not prepared
+                  </h2>
                 </div>
-                <span className="chip border-danger/30 text-danger">
+                <span className="chip border-red-200 bg-red-50 text-danger-text">
                   <StatusDot tone="error" /> Blocked
                 </span>
               </div>
-              <p className="px-4 py-4 text-sm text-ink">{prepared.refusal}</p>
+              <p className="px-5 py-4 text-sm text-ink">{prepared.refusal}</p>
               {prepared.evaluation.violations.length > 0 ? (
-                <ul className="space-y-1 border-t border-line px-4 py-3">
+                <ul className="space-y-1.5 border-t border-line px-5 py-3">
                   {prepared.evaluation.violations.map((violation) => (
-                    <li key={violation.code} className="flex gap-2 text-xs text-ink-muted">
-                      <StatusDot tone={violation.severity === "error" ? "error" : "warn"} />
+                    <li key={violation.code} className="flex items-start gap-2 text-xs text-ink-secondary">
+                      <span className="mt-1.5 shrink-0">
+                        <StatusDot tone={violation.severity === "error" ? "error" : "warn"} />
+                      </span>
                       <span>
-                        <span className="font-mono text-[10px] uppercase text-ink-faint">
+                        <span className="font-mono text-[10px] uppercase text-ink-muted">
                           {violation.code}
                         </span>{" "}
                         {violation.message}
@@ -572,10 +722,12 @@ export function ExecuteMove() {
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Gate</p>
-              <h2 className="text-sm font-semibold">What execution requires</h2>
+              <h2 className="text-base font-medium tracking-tight text-ink">
+                What execution requires
+              </h2>
             </div>
           </div>
-          <ol className="space-y-3 px-4 py-4 text-xs text-ink-muted">
+          <ol className="space-y-3 px-5 py-4 text-xs text-ink-secondary">
             <Step n="1" title="Dry preview">
               A live dry quote plus live RPC balances, checked against the guardrails.
             </Step>
@@ -600,13 +752,13 @@ export function ExecuteMove() {
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Why the preview is honest</p>
-              <h2 className="text-sm font-semibold">Data provenance</h2>
+              <h2 className="text-base font-medium tracking-tight text-ink">Data provenance</h2>
             </div>
           </div>
-          <p className="px-4 py-4 text-xs leading-relaxed text-ink-muted">
+          <p className="px-5 py-4 text-xs leading-relaxed text-ink-muted">
             The preview quotes a real 1Click dry quote and real balances from public RPC. It does
             not create a deposit address and does not persist a quote. A prepared move is
-            persisted with its quote reference, deposit address and deadline, and every refusal is
+            persisted with its quote reference, deposit address, and deadline, and every refusal is
             audited too.
           </p>
         </section>
@@ -618,24 +770,28 @@ export function ExecuteMove() {
 function DirectionButton({
   active,
   onClick,
-  label,
+  from,
+  to,
 }: {
   active: boolean;
   onClick: () => void;
-  label: string;
+  from: string;
+  to: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-md border px-3 py-2 text-xs transition-colors ${
+      className={`btn h-10 justify-center gap-2 text-xs ${
         active
-          ? "border-accent/40 bg-accent/[0.08] text-ink"
-          : "border-line bg-canvas text-ink-muted hover:text-ink"
+          ? "border-green-500 bg-green-50 text-ink"
+          : "border-line bg-canvas text-ink-secondary hover:bg-surface"
       }`}
     >
-      {label}
+      <span>{from}</span>
+      <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
+      <span>{to}</span>
     </button>
   );
 }
@@ -643,8 +799,8 @@ function DirectionButton({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-ink-faint">{label}</dt>
-      <dd className="metric text-ink" data-numeric>
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="metric font-medium text-ink" data-numeric>
         {value}
       </dd>
     </div>
@@ -654,7 +810,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function Step({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-line-strong text-[10px] text-ink-muted">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-[11px] font-medium text-ink-secondary">
         {n}
       </span>
       <span>

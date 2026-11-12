@@ -1,30 +1,29 @@
-# AI Cross-Chain Portfolio Operator
+# Capita — AI Cross-Chain Portfolio Operator
 
-## Product, technical, integration and hackathon specification
+## Product, technical and integration specification
 
-**Document type:** Master product and engineering brief  
-**Version:** 1.0  
-**Prepared:** 9 November 2026  
-**Project name:** Working title — not finalised  
-**Primary hackathon track:** Unstoppable DeFi (`defi`)  
-**Potential secondary track:** AI Security & Defense (`security`)  
-**Optional track, only if its requirements are implemented:** Privacy & Private AI (`privacy`)
+**Document type:** Master product and engineering specification  
+**Version:** 2.0  
+**Updated:** 12 November 2026 (Production scope — includes Tokenized Equities & RWAs)  
+**Product name:** Capita  
 
 > **Purpose of this document**  
-> This is the source of truth for the founder, product/design contributors and coding agents. It explains what the product is, who it serves, what users should be able to do, how each strategy works, what NEAR infrastructure contributes, what other integrations are needed, what must be built for the hackathon, and what must not be assumed. Coding agents should read this document before making architectural or product decisions.
+> This is the product and engineering source of truth for the founder, product/design contributors and coding agents. It explains what the product is, who it serves, what users should be able to do, how each strategy works, what NEAR infrastructure contributes, what other integrations are needed, what must be built for production, and what must not be assumed. Coding agents should read this document before making architectural or product decisions.
 
 ---
 
 ## 0. Executive summary
 
-The **AI Cross-Chain Portfolio Operator** is a DeFi portfolio management and execution platform for individual crypto holders. It gives users one place to view supported crypto assets and DeFi positions across multiple blockchain networks, discover opportunities to put capital to work, receive AI-assisted strategy recommendations, execute approved actions, and monitor the performance of their positions.
+**Capita (AI Cross-Chain Portfolio Operator)** is a non-custodial DeFi and real-world-asset (RWA) portfolio management and execution platform for individual crypto holders. It gives users one place to view supported crypto assets, DeFi positions, and tokenized equities across multiple blockchain networks, discover opportunities to put capital to work, receive AI-assisted strategy recommendations, execute approved actions, and monitor the performance of their positions.
 
-The platform initially focuses on four strategy categories:
+The platform focuses on six core strategy categories:
 
 1. **Yield vaults:** Deposit assets into supported third-party yield vaults and receive receipt tokens representing the position.
 2. **Lending:** Supply supported assets to lending markets and earn variable interest from borrowers.
 3. **Stablecoin liquidity provision:** Supply stablecoins to supported DEX pools and earn a share of trading fees and, where applicable, incentives.
 4. **Cross-chain arbitrage:** Discover price discrepancies for the same verified asset across DEX liquidity pools on different chains, calculate execution-aware estimated net profit, and help users execute eligible trades.
+5. **Tokenized equities & RWAs:** Buy, hold, track, and sell verified fractionalized tokenized US stocks, ETFs, and commodities (e.g. Dinari `dShares`, Backed `xStocks`, Ondo Stocks, Tether Gold `XAUT`) alongside DeFi positions under explicit NAV-spread, concentration, and issuer-disclosure guardrails.
+6. **Cross-chain wallet copytrading (Non-memecoin Spot, Vaults, Lending & LP — All Setup from NEAR):** Inspect any trader wallet/ID across chains or discover ranked top performers, analyze verified positions with AI, and mirror eligible non-memecoin spot trades (via live 1Click) and DeFi vault/lending/LP actions from a single NEAR-funded setup.
 
 The product's main workflow is:
 
@@ -34,14 +33,14 @@ AI acts as the research, explanation and strategy-orchestration layer. It interp
 
 NEAR is an essential part of the product's cross-chain infrastructure:
 
-- **NEAR Intents / 1Click Swap API** provides supported cross-chain swap execution through a quote, deposit and status lifecycle.
+- **NEAR Intents / 1Click Swap API** provides supported cross-chain swap execution through a quote, deposit and status lifecycle—including cross-chain stablecoin (`USDC`) staging into destination equity networks and direct settlement for supported RWAs present in the live `/v0/tokens` catalogue (such as `XAUT`).
 - **1Click Earn** extends the same quote lifecycle to supported third-party yield products. A user supplies a supported asset and receives a vault/share receipt token.
-- **NEAR Intents Agent API** is a potential advanced mechanism for an AI agent wallet with owner-signed rules, spending limits, approved actions, timelocks and an emergency freeze. It is currently documented as an experimental, mainnet-only beta and must not be treated as a mandatory dependency for the hackathon MVP.
-- **NEAR AI Cloud** is the recommended AI inference provider. It exposes an OpenAI-compatible API and provides private inference options, including TEE-hosted models and verification capabilities.
+- **NEAR Intents Agent API** is an optional mechanism for bounded delegated execution with owner-signed rules, spending limits, approved actions, timelocks and an emergency freeze. It remains gated behind security review and explicit user enablement.
+- **NEAR AI Cloud** is the AI inference provider. It exposes an OpenAI-compatible API and provides private inference options, including TEE-hosted models and verification capabilities.
 
-NEAR Intents does not automatically provide every lending, LP or arbitrage function. The product must integrate directly with individual DeFi protocols and DEXs for those actions. The 1Click Earn catalogue is also limited to the receipt assets currently listed and quoted by the live API. Support must be checked dynamically.
+NEAR Intents does not automatically provide every lending, LP, arbitrage, or tokenized-equity swap function. Public 1Click `/v0/tokens` (`230` tokens verified on 12 November 2026) does not directly list tokenized equities, so buying or selling equities uses a **two-step non-atomic rail**: 1Click stages `USDC` onto the destination chain (e.g. Arbitrum One, Ethereum, or Solana), and a destination DEX/RFQ or issuer adapter settles the equity trade. Support must always be checked dynamically against live APIs and verified contract registries.
 
-The product should not be positioned as a guaranteed-profit or risk-free investment product. APYs are variable, arbitrage can lose money, stablecoins can depeg, liquidity can disappear, transactions can fail, and DeFi protocols can be exploited.
+The product should not be positioned as a guaranteed-profit investment product or a regulated stock brokerage. APYs are variable, arbitrage can lose money, stablecoins can depeg, tokenized stocks carry issuer/custodian and off-hours spread risks, liquidity can disappear, transactions can fail, and smart contracts can be exploited.
 
 ---
 
@@ -131,7 +130,7 @@ Typical users include:
 
 ### 2.3 Secondary segments — not the initial build focus
 
-DAOs, Web3 foundations and Web3 companies could later use the same financial intelligence and execution layer for treasury management. Their needs differ in important ways: multisig approvals, governance proposals, operating reserves, reporting, role-based access and audit controls. Do not build a separate treasury product or DAO workflow in the hackathon MVP.
+DAOs, Web3 foundations and Web3 companies could later use the same financial intelligence and execution layer for treasury management. Their needs differ in important ways: multisig approvals, governance proposals, operating reserves, reporting, role-based access and audit controls. Keep individual portfolio management clean before introducing DAO/multisig workflows.
 
 ### 2.4 Initial user assumptions to validate
 
@@ -447,7 +446,7 @@ This is easy to explain but exposes the user to price movement while the cross-c
 
 This can reduce the delay caused by bridging between the buy and sell legs, but the two trades still may not be atomic. Partial fills and one-leg-only execution are possible.
 
-For the hackathon, the safe scope is an opportunity scanner with deterministic net-profit estimates, fresh quote checks, simulation and transaction-ready execution for only those paths that can be validated. Do not claim full automated arbitrage execution unless both legs, failure handling and accounting work end-to-end.
+The platform must provide an opportunity scanner with deterministic net-profit estimates, fresh quote checks, simulation and transaction-ready execution for paths that can be validated. Do not claim full automated arbitrage execution unless both legs, failure handling and accounting work end-to-end.
 
 #### Risks and disclosures
 
@@ -460,6 +459,110 @@ For the hackathon, the safe scope is an opportunity scanner with deterministic n
 - Gas spikes and transaction replacement.
 - Insufficient capital on one chain.
 - Rebalancing cost can erase the spread.
+
+---
+
+### 4.5 Strategy E — Tokenized equities & RWAs
+
+#### Overview
+
+Users can buy, hold, track, and sell verified fractionalized tokenized US stocks, ETFs, and commodities (e.g. Nvidia, Apple, Tesla, S&P/Nasdaq ETFs, and tokenized gold) inside the same self-custodial portfolio that holds their crypto and DeFi yield positions.
+
+Unlike standalone stock-basket apps, Capita positions tokenized equities as a **policy-capped sleeve alongside productive DeFi capital** (for example: keeping 30% liquid USDC, earning yield on 50% in vaults/lending, and allocating 20% or harvested yield into tokenized US equities).
+
+#### Real-world asset issuers and chain availability
+
+- **NEAR Intents 1Click live `/v0/tokens` check (verified 12 November 2026):** Out of `230` listed tokens, **zero** tokenized stocks or equity ETFs are exposed natively in the public 1Click catalogue. Tokenized gold (`XAUT` on Ethereum, `0x68749665ff8d2d112fa859aa293f07a622782f38`) is the closest live commodity RWA in `/v0/tokens`. Meanwhile, ticker collisions exist in `/v0/tokens` (for example, `SPX` on Ethereum and Solana at `~$0.35` is the SPX6900 memecoin, not the S&P 500).
+- **Destination on-chain issuers:**
+  - **Arbitrum One:** Dinari `dShares` (e.g. `NVDA.d`, `AAPL.d`) and Backed `xStocks` (`AAPLx`).
+  - **Ethereum:** Ondo Stocks (`NVDAon`, `AAPLon`, `TSLAon`) and Tether Gold (`XAUT`).
+  - **Solana (planned multi-chain expansion):** Backed `xStocks` (Token-2022 mints such as `NVDAx`) and Ondo Stocks.
+
+#### How execution works (Two-step non-atomic rail)
+
+Because public 1Click routes settle crypto/stablecoins and `XAUT` rather than third-party equity tokens directly:
+
+1. **Buy equity flow:**
+   - **Step 1 (1Click Staging):** Use NEAR Intents 1Click to consolidate/bridge user `USDC` from the origin chain (e.g. Base) to the destination chain where the verified stock token trades (e.g. Arbitrum One or Ethereum).
+   - **Step 2 (Destination Equity Swap):** Request a fresh quote from a verified DEX aggregator, RFQ venue, or issuer adapter (e.g. 0x / CoW / Uniswap / issuer router), verify NAV spread guardrails, display token approval/spender details, and request user wallet signature to swap `USDC` → verified equity token.
+2. **Sell equity flow:**
+   - **Step 1 (Equity Unwind):** Swap the tokenized equity back to `USDC` on the destination chain with user approval and NAV-spread verification.
+   - **Step 2 (Optional 1Click Repatriation):** Move settled `USDC` back to the user's preferred chain or into a DeFi yield vault via 1Click.
+3. **Strict non-atomicity:** Both legs have independent confirmations, quotes, and failure states. If Step 1 succeeds and Step 2 fails a spread guardrail (e.g. off-hours illiquidity), the user retains settled `USDC` safely on the destination chain.
+
+#### Dual price provenance and market-hours rules
+
+Traditional equity markets trade during regulated exchange hours (09:30–16:00 ET Monday–Friday, plus extended sessions), whereas on-chain DEX pools trade 24/7:
+
+- Every equity listing and position must store **both**:
+  1. **TradFi Reference NAV:** Underlying stock/ETF market price, exchange session state (`OPEN`, `EXTENDED`, `CLOSED`), data provider, and observation timestamp.
+  2. **On-chain Execution Price:** Live DEX/RFQ quote price and pool liquidity depth.
+- **Off-hours spread check:** Deterministic calculation `navDeviationBps = abs(execPrice - refNav) / refNav * 10000`. Trades exceeding the user's `maxNavDeviationBps` (default e.g. `75 bps`) or occurring while markets are `CLOSED` (when `allowOffHoursExecution = false`) are blocked by the policy engine.
+
+#### Corporate actions, custody, and compliance disclosures
+
+- **Wrapper differences:** Explicitly tag whether a token is `total_return_reinvesting` (e.g. Ondo `.on` tokens reinvesting net dividends into redemption value) vs `price_tracker` or issuer-specific dividend handling, and note that tokenized equities do not confer shareholder voting rights unless stated by the issuer.
+- **Issuer/custodian counterparty risk:** Underlying shares are held by regulated custodians/SPVs under the issuer's legal structure, unlike trustless native crypto.
+- **Transfer & jurisdiction restrictions:** Certain issuers restrict transfers to allowlisted/KYC wallets or exclude residents of specific jurisdictions (such as the US and Canada). Eligibility status and issuer disclaimers must be surfaced before execution.
+
+#### End-to-end product scenario (Core DeFi Yield + Policy-Capped Equity Sleeve)
+
+1. **Portfolio:** User holds `$6,000 USDC` + `0.8 ETH` on Base and `$2,500 USDC` + `0.02 WBTC` on Arbitrum One.
+2. **Guardrails:** `minLiquidPercent = 30%`, `maxRwaExposurePercent = 20%`, `maxNavDeviationBps = 75`, `allowOffHoursExecution = false`.
+3. **AI Strategy Proposal:** User asks to keep 30% liquid, earn yield on 50%, and invest 20% into Nvidia and Apple equities. AI returns basis-point weights (`50%` Base yield vault, `10%` Arbitrum `NVDA.d`, `10%` Arbitrum `AAPL.d`); deterministic code verifies reserve, RWA cap, NASDAQ `OPEN` session, `+18 bps` spread (`<= 75 bps`), and verified contract addresses.
+4. **Two-Step Execution:** User approves Leg 1 (`1Click` moves `$1,000 USDC` Base → Arbitrum to stage funds cleanly) and Leg 2 (Arbitrum DEX/RFQ swaps `$1,000 USDC → NVDA.d` and `$1,000 USDC → AAPL.d` after reviewing issuer/custody notice).
+5. **Positions & Exit:** User tracks atomic fractional shares, cost basis, Reference NAV, live exit value, and can sell any equity back to `USDC` (and optionally bridge to Base via 1Click) in one guided flow.
+
+#### Risks and disclosures
+
+- Issuer, broker-dealer, and SPV custodian insolvency or regulatory halt risk.
+- Off-hours liquidity thinning causing severe DEX premiums or discounts versus Reference NAV.
+- Dividend tax withholding and corporate-action tracking divergence.
+- Transfer/allowlist reverts on non-compliant wallets or regional geo-restrictions.
+- Ticker spoofing or malicious lookalike ERC-20/SPL tokens (prevented by `(chainId, contractAddress)` verification).
+
+---
+
+### 4.6 Strategy F — Cross-chain wallet copytrading (Spot blue-chips, vaults, lending & LP — all setup from NEAR)
+
+#### Overview & asset scope
+
+Users can search **any cross-chain trader address or domain** (`0x...`, `.eth`, `.sol`, `.near`) or browse a curated **Top Performers** leaderboard across chains, inspect the trader's verified live holdings and DeFi positions through an AI briefing, and mirror either a one-time portfolio snapshot or ongoing trades—**all funded and configured once from NEAR**.
+
+**Trading type & strict non-memecoin scope:**
+- **Included:** Spot cross-chain allocations across major verified tokens and RWAs (`~184` non-memecoin assets live in 1Click `/v0/tokens` such as `ETH`, `WETH`, `WBTC`/`cbBTC`, `SOL`, `NEAR`, `AAVE`, `UNI`, `LINK`, `ARB`, `GMX`, `OP`, `SUI`, `AVAX`, `XAUT`, `USDC`/`USDT`/`DAI`), **1Click Earn vaults** (`gtUSDCp`, `sparkUSDC`, `mwUSDC`, `steakUSDC`, `kV-gtSOLb`), **Aave V3 lending supplies**, and **Uniswap V3 / Aerodrome LP entries**.
+- **Explicitly excluded:** **Zero memecoins.** Memecoins, unverified micro-cap DEX tokens, and opaque high-frequency MEV flows are deterministically excluded from discovery rankings and blocked by the policy engine.
+- **Perps clarification:** 1Click settles **spot and vault tokens**, not leveraged perpetual futures. While 1Click bridges `USDC` to chains such as `hypercore`, perp copytrading requires a separate future perp adapter (`Hyperliquid` / `GMX`) and must never be conflated with spot 1Click execution.
+
+#### Data platforms & wallet discovery sources
+
+Because trader activity is scattered across networks, Capita pulls normalized multi-chain telemetry from specialized indexers and verifies on-chain state before execution:
+
+1. **Instant Wallet X-Ray (user-entered address or ID):**
+   - **Zerion API:** Cross-chain token balances, Aave lending supply/borrow positions, Uniswap LP positions, decoded swap history, and PnL across EVM + Solana.
+   - **DeBank Cloud OpenAPI:** Deep EVM wallet profiling, protocol stakes, health factors, and claimable rewards.
+   - **Sim by Dune API:** Multi-chain EVM + Solana analytics, block-level snapshots, Uniswap V3 LP fee vs. impermanent-loss breakdown, and Aave health factors.
+   - **Direct RPC verification (`viem`):** Confirms exact `(chainId, contractAddress)` identity and live state before any execution quote is requested.
+2. **Cross-chain Top Performers leaderboard:**
+   - Curated via **Sim by Dune / Dune pipelines** and **Zerion / DeBank** wallet feeds, deterministically filtering out MEV bots, exchange hot wallets, wash traders, and memecoin-heavy wallets. Ranks traders by realized return, win rate, drawdown, average hold duration, and traded asset liquidity.
+
+#### AI Wallet X-Ray & unified NEAR execution setup
+
+1. **Wallet X-Ray (Deterministic metrics + NEAR AI Cloud):**
+   - Deterministic code computes win rate, realized PnL, drawdown, and strategy breakdown (`spot` vs `vaults` vs `lending` vs `LP`), ensuring zero fabricated performance stats.
+   - NEAR AI Cloud translates those facts into a clear summary explaining what chains/protocols the trader uses and flagging uncopyable legs (such as Aave borrow debt or unknown off-chain/perp hedges).
+2. **Unified NEAR setup & dual execution modes:** Users fund **one** NEAR setup (`USDC` in a NEAR Intents / Agent wallet) instead of maintaining fragmented gas and stablecoin balances across five chains:
+   - **Mode A — Copy-with-Approval (Non-Custodial):** When a followed wallet executes an eligible move (or user clicks **Mirror Current Portfolio**), Capita prepares the verified quote and prompts for explicit user approval.
+   - **Mode B — Automated Rule-Bound Copy (NEAR Intents Agent API + Chain Signatures):** User signs owner-authorized **NEAR Intents Agent API** spending rules from NEAR (`maxUsdPerCopyTrade`, `maxDailyCopyBudgetUsd`, `copyScaleBps`, `maxPriceDriftFromLeaderBps`, `noMemecoinsOnly`, and instant kill-switch):
+     - **Spot & 1Click Earn vaults (`gtUSDCp`, `sparkUSDC`, `steakUSDC`, etc.):** Executed directly cross-chain via **NEAR Intents 1Click / Agent API** in **one step**.
+     - **Lending (Aave V3) & LP (Uniswap V3):** Executed via a **two-step non-atomic rail**: 1Click stages the required token onto Base/Arbitrum/Ethereum, and **NEAR Chain Signatures** (or connected wallet) signs the verified `supply()` or `mint()` call on the destination contract matching the leader's pool and price range.
+
+#### Risks and disclosures
+
+- **Latency & price drift ("exit liquidity"):** Between a leader's transaction block and follower execution, asset price can move against the follower (mitigated deterministically by `maxPriceDriftFromLeaderBps` and excluding illiquid tokens/memecoins).
+- **Spot-only visibility / hidden hedges:** An indexed on-chain wallet buying spot `ETH` or `WBTC` may be delta-hedged short on a CEX or perp exchange; Capita cannot see external CEX accounts and warns users explicitly before copying.
+- **Lending/LP asymmetry:** Mirroring a leader's collateral supply without their debt management or rebalancing cadence can diverge; high-leverage borrow loops are blocked by default.
+- **Past leader performance:** Historical wallet returns never guarantee future profits, and copytrading fees/slippage reduce net return vs the leader's fills.
 
 ---
 
@@ -507,16 +610,18 @@ A common discovery interface with strategy tabs:
 - Lending markets.
 - Stablecoin LP pools.
 - Cross-chain arbitrage.
+- Tokenized equities & RWAs.
+- Copytrading (Wallet X-Ray & Top Performers — zero memecoins).
 
 Each opportunity card should contain at least:
 
 - Strategy type.
-- Protocol/DEX and chain.
-- Asset or pair contract addresses and symbols.
-- Estimated APY/APR or net trade profit, as applicable.
-- Data source and last updated timestamp.
+- Protocol/DEX/issuer and chain.
+- Asset or pair contract addresses and symbols (for RWAs: underlying ticker, issuer name, and wrapper type).
+- Estimated APY/APR or net trade profit, as applicable (for equities/RWAs: never label historical stock return as APY; show Reference NAV, live on-chain quote, and spread in bps).
+- Market session status for RWAs (`OPEN`, `EXTENDED`, `CLOSED`) plus data source and last updated timestamp.
 - Liquidity/TVL and volume where relevant.
-- Fees and withdrawal constraints where available.
+- Fees, withdrawal constraints, and issuer/jurisdiction eligibility notes where available.
 - Risk indicators and missing data flags.
 - A details view and a fresh-quote action before execution.
 
@@ -569,22 +674,22 @@ For each position show:
 - Current position value.
 - Current underlying assets or receipt tokens.
 - Current APY/APR and rate timestamp if available.
-- Accrued interest/fees/rewards.
+- Accrued interest/fees/rewards (or equity price return & corporate-action/dividend adjustment, explicitly separated).
 - Realised P&L.
 - Unrealised P&L.
 - Fees and incentives earned.
-- Chain and protocol.
+- Chain, protocol, and (for RWAs) issuer/wrapper identity.
 - Entry transaction and explorer link.
-- Withdrawal path and current restrictions.
-- Relevant risk and health indicators.
+- Withdrawal or unwind path (including two-step sell → USDC → bridge) and current restrictions.
+- Relevant risk and health indicators (including live Reference NAV vs exit spread for tokenized equities).
 
 Available actions should include:
 
 - View details.
 - Refresh position data.
-- Add capital (if supported).
-- Withdraw/remove liquidity/redeem (if supported).
-- Pause automated monitoring or future execution.
+- Add capital / buy additional fractional shares (if supported).
+- Withdraw/remove liquidity/redeem/sell back to USDC (if supported).
+- Pause automated monitoring or future execution (including freezing copytrading subscriptions).
 - Close/terminate a strategy (subject to the protocol's actual exit procedure).
 - Export transaction history.
 
@@ -598,6 +703,8 @@ Possible alerts:
 - Stablecoin deviates from its peg threshold.
 - LP position moves out of range.
 - Yield vault withdrawal/receipt conversion changes.
+- Tokenized equity off-hours spread exceeds `maxNavDeviationBps` or issuer pauses/restricts transfers.
+- Followed leader wallet makes an eligible trade (prompting Copy-with-Approval or reporting auto-copy execution), or a copy leg is blocked due to `maxPriceDriftFromLeaderBps` or excluded memecoin/debt detection.
 - Strategy exposure exceeds a limit.
 - Arbitrage route is no longer profitable.
 - Transaction is pending too long, refunded or failed.
@@ -771,12 +878,13 @@ Documented setup at a high level:
 
 Potential use in this product:
 
+- Optional automated rule-bound copytrading (`Mode B`) funded once from a NEAR balance, mirroring verified non-memecoin 1Click spot swaps and Earn vault deposits within owner-signed limits.
 - Optional autopilot for supported swaps or other explicitly permitted operations.
 - Per-transaction and per-asset limits.
 - Daily/weekly/monthly USD budget caps.
 - Destination allowlists.
 - Time windows and timelocks.
-- Owner approval for every money action.
+- Owner approval or policy-grant validation for every money action.
 - Emergency freeze.
 - Restricted action and asset sets.
 
@@ -786,7 +894,7 @@ Critical limitations and cautions:
 - It is not a substitute for protocol-specific transaction support. Its documented action surface must be checked against the actions this app wants to perform.
 - Native NEAR/EVM/Solana key options have their own policy rules; do not assume the general Intents policy protects every native signing operation.
 - The Agent API must not be integrated without reading the current policy, owner-signing, grant, funding, quickstart and security docs.
-- The hackathon MVP must still work in ordinary user-approved wallet mode if Agent API access or integration is unavailable.
+- The platform must work in ordinary user-approved wallet mode by default, independent of optional Agent API availability.
 
 Official docs: [Agent API overview](https://docs.agentsonintents.com/integration/agent-api/overview), [How it works](https://docs.agentsonintents.com/integration/agent-api/concepts), [Policies & Limits](https://docs.agentsonintents.com/integration/agent-api/policies-and-limits).
 
@@ -854,15 +962,14 @@ Privacy nuance: NEAR AI Cloud's catalogue has different privacy tiers. A model m
 
 Official docs: [NEAR AI Cloud quickstart](https://docs.near.ai/cloud/quickstart), [model catalogue documentation](https://docs.near.ai/cloud/models), [GLM 5.3 Flash page](https://near.ai/models/z-ai/glm-5.3-flash), [API reference](https://docs.near.ai/api-reference/introduction).
 
-### 7.6 NEAR Chain Signatures — not required for the first MVP
+### 7.6 NEAR Chain Signatures — cross-chain DeFi execution from NEAR
 
-Chain Signatures allow a NEAR account or smart contract to request threshold-MPC signatures for supported external-chain signature schemes. This can be useful for more advanced cross-chain contract or agent architectures.
+Chain Signatures allow a NEAR account or smart contract to derive native EVM (`ECDSA`) and Solana (`Ed25519`) addresses and request threshold-MPC signatures for foreign-chain transactions without managing separate gas or private keys per chain.
 
-Do not introduce Chain Signatures simply because they appear in the hackathon's Unstoppable DeFi track. The current 1Click flow already handles its documented cross-chain swap lifecycle. Chain Signatures are a separate lower-level tool and are not required for a user-signed 1Click swap.
+- Standard user-signed 1Click swaps and Copy-with-Approval flows use direct wallet signing.
+- **Role in unified NEAR setup & DeFi copytrading:** When a user sets up automated cross-chain copytrading from NEAR and needs to mirror **destination-contract DeFi actions** that 1Click alone cannot execute directly (such as supplying to Aave V3 or minting a Uniswap V3 LP range on Base/Arbitrum after 1Click stages funds), Chain Signatures lets that single NEAR account sign the destination contract calldata deterministically inside strict user policy limits.
 
-Consider them only if a specific later feature requires a NEAR account or contract to sign transactions on an external chain and the team can explain why direct wallet signing or Agent API support is insufficient.
-
-Official track guidance links to [NEAR Chain Signatures documentation](https://docs.near.org/chain-abstraction/chain-signatures).
+Reference: [NEAR Chain Signatures documentation](https://docs.near.org/chain-abstraction/chain-signatures).
 
 ### 7.7 NEAR Intents Explorer
 
@@ -917,7 +1024,7 @@ The AI must not:
 
 ### 8.4 Recommended AI architecture
 
-For the hackathon, use **one orchestrator with typed tools**, not an unnecessarily complex multi-agent swarm.
+Use **one orchestrator with typed tools**, avoiding brittle multi-agent sprawl until measurable specialisation is required.
 
 The orchestrator can call specialised backend services that behave like strategy experts:
 
@@ -926,11 +1033,13 @@ The orchestrator can call specialised backend services that behave like strategy
 - `yield_vault_service`
 - `stablecoin_lp_service`
 - `arbitrage_scanner`
+- `tokenized_equity_service`
+- `copytrading_service`
 - `risk_evaluator`
 - `allocation_optimizer`
 - `execution_quote_service`
 
-These services can later become separate agents if there is a measurable need. Multiple LLM agents are not required to demonstrate specialised analysis.
+These services can later become separate agents if there is a measurable need. Multiple LLM agents are not required to provide specialised analysis.
 
 ### 8.5 Suggested tool contracts
 
@@ -944,11 +1053,17 @@ type PortfolioSnapshotInput = {
 };
 
 type OpportunitySearchInput = {
-  strategy: "yield_vault" | "lending" | "stablecoin_lp" | "arbitrage";
+  strategy: "yield_vault" | "lending" | "stablecoin_lp" | "arbitrage" | "tokenized_equity" | "copytrading";
   assetAddresses?: string[];
   chainIds?: number[];
   amountUsd?: number;
   minLiquidityUsd?: number;
+};
+
+type TraderInspectionInput = {
+  addressOrHandle: string; // 0x..., .eth, .sol, .near
+  chains?: string[];
+  lookbackDays?: number;
 };
 
 type StrategyProposalInput = {
@@ -988,7 +1103,7 @@ type StrategyProposal = {
   status: "draft" | "needs_user_input" | "validated" | "rejected";
   allocations: Array<{
     opportunityId: string;
-    strategyType: "yield_vault" | "lending" | "stablecoin_lp" | "arbitrage";
+    strategyType: "yield_vault" | "lending" | "stablecoin_lp" | "arbitrage" | "tokenized_equity" | "copytrading";
     chainId: number;
     protocolId: string;
     assetAllocations: Array<{
@@ -999,7 +1114,7 @@ type StrategyProposal = {
     }>;
     amountUsdEstimate: number;
     expectedReturnRate?: number;
-    returnRateType?: "APY" | "APR" | "estimated_net_trade_profit";
+    returnRateType?: "APY" | "APR" | "estimated_net_trade_profit" | "reference_nav_exposure";
     rationale: string;
     riskFactors: string[];
     dataSources: Array<{ name: string; url?: string; observedAt: string }>;
@@ -1036,7 +1151,7 @@ Potential approach:
 
 - Reown AppKit for user-facing multichain wallet connection across EVM and Solana, or a narrower connector stack already present in the repository.
 - `wagmi` and `viem` for EVM wallet state, chain switching, reads, calldata and writes.
-- A Solana wallet adapter only if Solana is included in the supported MVP.
+- A Solana wallet adapter when Solana chains/RWAs (`xStocks`, Ondo Stocks) are enabled.
 
 Review Reown's current SDK documentation and licensing/plan conditions before choosing it. Do not replace an existing working wallet architecture without a clear reason.
 
@@ -1089,7 +1204,7 @@ are scheduled to shut down on **13 November 2026**. Equivalent data is listed on
 /yields/v1/chart/{pool}
 ```
 
-The hackathon submission deadline is 14 November 2026. Do not make the MVP dependent on the old free endpoint. If using DefiLlama, verify plan/API-key access and endpoint availability. Otherwise use protocol-specific data and another validated yield metadata provider.
+Do not make production modules dependent on deprecated free endpoints. If using DefiLlama, verify plan/API-key access and paid endpoint availability (`/yields/v1/*`). Otherwise use protocol-specific data and another validated yield metadata provider.
 
 ### 9.6 Lending data and transactions
 
@@ -1109,6 +1224,23 @@ For current balance display, use on-chain balances plus token metadata from a va
 
 Avoid using an asset's ticker alone as its identity. The canonical key should include chain/network ID and token contract/mint address.
 
+### 9.9 Tokenized equity & RWA market and swap integrations
+
+To support buying, selling, and accurately valuing tokenized stocks, ETFs, and commodities:
+
+- **TradFi Reference NAV & market calendar feeds:** Retrieve official equity/ETF quotes and US exchange session status (`OPEN | EXTENDED | CLOSED`) from a licensed market data provider so off-hours spreads can be calculated deterministically.
+- **Issuer & registry metadata:** Cross-reference official issuer directories (Dinari, Backed, Ondo, Tether Gold) before mark-to-market or execution so contract addresses, decimals, corporate-action mechanics, and allowlist status are verified.
+- **Destination swap/RFQ adapters:** Obtain live destination swap calldata and executable quotes via verified aggregators/routers (e.g. 0x, CoW Swap, Uniswap, or issuer APIs) on Arbitrum One / Ethereum (or Jupiter on Solana), paired with NEAR Intents 1Click for cross-chain USDC staging and direct `XAUT` settlement.
+
+### 9.10 Cross-chain wallet indexing & Top Performers data integrations
+
+To power instant trader address lookups (spot, vaults, Aave lending, and Uniswap V3 LP positions) and cross-chain Top Performers rankings without memecoins:
+
+- **Zerion API:** Normalized cross-chain balances, Aave supplied/borrowed positions, Uniswap LP positions, decoded transaction history, and wallet PnL across EVM chains and Solana.
+- **DeBank Cloud OpenAPI:** Deep EVM multi-chain protocol detection, lending health factors, LP pool stakes, and reward tracking.
+- **Sim by Dune API & Dune SQL pipelines:** Historical block-level balance snapshots, Uniswap V3 LP fee vs. impermanent-loss analytics, and deterministic Top Performers leaderboards filtering out memecoins, MEV bots, wash traders, and exchange hot wallets.
+- **Direct RPC verification:** Always confirm token contracts `(chainId, contractAddress)`, market liquidity, and live 1Click/DEX quotes directly on-chain before preparing any mirrored trade.
+
 ---
 
 ## 10. Supported chains and assets
@@ -1124,18 +1256,14 @@ However:
 - A quote is needed to establish whether a specific route and amount is available.
 - Wallet signature support differs by chain.
 
-### 10.2 Recommended initial scope
+### 10.2 Chain rollout scope
 
-To avoid building an untestable universal system, choose a small set of networks after checking the live API and protocol deployments.
+Choose networks based on verified asset support, liquidity, contract addresses, wallet signing and integration feasibility:
 
-Suggested initial focus for investigation:
-
-- **Base:** potential lending, stablecoin LP and yield-vault integration.
-- **Arbitrum:** potential second EVM network for cross-chain price comparison and arbitrage discovery.
-- **Ethereum:** include only if a selected vault/lending market and execution costs make it useful for the MVP.
-- **Solana:** defer unless the chosen vault or arbitrage path gives a clear reason to include it.
-
-This is a proposed shortlist, not a final commitment. The final chain list must be based on verified asset support, liquidity, contract addresses, wallet signing and integration feasibility.
+- **Base (`8453`):** Active primary EVM chain for lending, stablecoin LP, yield vaults (`gtUSDCp`, `sparkUSDC`, `mwUSDC`), and 1Click USDC staging.
+- **Arbitrum One (`42161`):** Active second EVM network for lending, DEX arbitrage, and Arbitrum-native tokenized equities (`Dinari dShares`, `Backed xStocks`).
+- **Ethereum (`1`):** Planned expansion for Ondo Stocks (`NVDAon`, `AAPLon`, `TSLAon`) and live 1Click tokenized gold (`XAUT`), plus deep Aave/vault liquidity.
+- **Solana:** Planned non-EVM expansion for high-liquidity `xStocks` (Token-2022) and Ondo Stocks once multi-chain wallet signing is enabled.
 
 ### 10.3 Token identity rules
 
@@ -1146,10 +1274,12 @@ Every token record must include:
 - Symbol and name (display metadata only).
 - Decimals.
 - Native/wrapped/bridged classification.
+- `asset_class` (`crypto | stablecoin | tokenized_equity | tokenized_etf | commodity | vault_receipt`).
+- For RWAs/equities: `issuer`, `underlying_ticker`, `wrapper_type` (`total_return_reinvesting | price_tracker`), and eligibility/allowlist constraints.
 - Canonical asset mapping where verifiable.
 - Verification status and source.
 
-Never assume two tokens are the same because both are called `USDC`, `ETH`, or share another symbol. A bridged version may have different redemption, issuer or contract risks.
+Never assume two tokens are the same because both are called `USDC`, `ETH`, `NVDA`, or share another symbol. A bridged version or unverified meme token (`SPX` memecoin vs S&P 500) has completely different redemption, issuer or contract risks.
 
 ---
 
@@ -1179,23 +1309,30 @@ flowchart LR
     AI --> TOOLS[Typed read-only tools]
     TOOLS --> MARKET[Market data adapters]
     TOOLS --> PORT[Portfolio/indexing service]
+    TOOLS --> COPY[Trader & leaderboard indexer]
     TOOLS --> RISK[Risk and calculation engine]
     API --> POLICY[Policy validation]
     API --> EXEC[Execution orchestrator]
-    EXEC --> ONE[NEAR Intents 1Click]
+    EXEC --> ONE[NEAR Intents 1Click & Agent API]
     EXEC --> LEND[Lending protocol adapter]
     EXEC --> LP[DEX/LP adapter]
     EXEC --> ARB[Arbitrage execution adapter]
+    EXEC --> RWA[Tokenized equity DEX/RFQ adapter]
+    EXEC --> CSIG[NEAR Chain Signatures signer]
     ONE --> CHAINS[Supported blockchains]
     LEND --> CHAINS
     LP --> CHAINS
     ARB --> CHAINS
+    RWA --> CHAINS
+    CSIG --> CHAINS
     PORT --> DB[(PostgreSQL)]
+    COPY --> DB
     MARKET --> DB
     EXEC --> DB
     POLICY --> DB
     API --> DB
     WORKER[Scheduled monitor / reconciliation worker] --> PORT
+    WORKER --> COPY
     WORKER --> MARKET
     WORKER --> DB
 ```
@@ -1208,7 +1345,7 @@ flowchart LR
 | UI | Tailwind CSS + component library already in repo | Keep UI coherent and responsive |
 | EVM wallet/contracts | wagmi + viem | Contract reads, writes and transaction tracking |
 | Multichain wallet UI | Reown AppKit or current wallet adapter | Verify license and selected networks |
-| Backend | Existing Next.js server routes or a small dedicated TypeScript API | Do not over-engineer a microservice architecture for the hackathon |
+| Backend | Existing Next.js server routes or a small dedicated TypeScript API | Keep modular and clear; extract background workers cleanly as load grows |
 | Database | PostgreSQL/Supabase or existing database | Persist strategies, quotes, positions and tx states |
 | AI | NEAR AI Cloud + OpenAI-compatible SDK | Keep API calls server-side |
 | Background tasks | Simple worker/cron/queue supported by deployment | Reconcile transaction status and position metrics |
@@ -1346,6 +1483,10 @@ The exact schema can be adapted to the existing database, but these entities and
 - `symbol`
 - `name`
 - `decimals`
+- `asset_class` (`crypto | stablecoin | tokenized_equity | tokenized_etf | commodity | vault_receipt`)
+- `issuer` (nullable, e.g. `Ondo`, `Backed`, `Dinari`, `Tether`)
+- `underlying_ticker` (nullable, e.g. `NVDA`, `AAPL`, `XAUT`)
+- `wrapper_type` (nullable, e.g. `total_return_reinvesting`, `price_tracker`)
 - `canonical_asset_id` (nullable)
 - `verification_status`
 - `metadata_source`
@@ -1396,6 +1537,9 @@ Unique key should be `(chain_id, normalized_contract_address)` for contract-base
 - `market_or_pool_address`
 - `estimated_apy_or_apr`
 - `rate_type`
+- `reference_nav_usd` (nullable, for tokenized equities/RWAs)
+- `market_session_status` (nullable: `OPEN | EXTENDED | CLOSED`)
+- `nav_deviation_bps` (nullable)
 - `tvl_or_liquidity_usd`
 - `volume_24h_usd`
 - `fees`
@@ -1424,6 +1568,15 @@ Unique key should be `(chain_id, normalized_contract_address)` for contract-base
 - `max_asset_exposure_percent`
 - `max_chain_exposure_percent`
 - `max_strategy_exposure_percent`
+- `max_rwa_exposure_percent`
+- `max_equity_single_asset_percent`
+- `max_nav_deviation_bps`
+- `allow_off_hours_equity_execution`
+- `no_memecoins_only`
+- `max_usd_per_copy_trade`
+- `max_daily_copy_budget_usd`
+- `max_price_drift_from_leader_bps`
+- `copy_scale_bps`
 - `max_slippage_bps`
 - `max_gas_usd`
 - `min_net_arbitrage_profit_usd`
@@ -1552,6 +1705,40 @@ Unique key should be `(chain_id, normalized_contract_address)` for contract-base
 - `realised_net_pnl_usd`
 - `status`
 
+### `tracked_traders`
+
+- `id`
+- `address`
+- `ecosystem` (`evm | solana | near`)
+- `resolved_handle` (nullable ENS / `.near` / `.sol`)
+- `indexer_sources_json` (`zerion | debank | sim_by_dune`)
+- `realised_pnl_90d_usd`
+- `win_rate_percent`
+- `max_drawdown_percent`
+- `is_memecoin_free`
+- `has_external_hedge_warning`
+- `ai_summary`
+- `last_indexed_at`
+
+### `copy_subscriptions`
+
+- `id`
+- `user_id`
+- `tracked_trader_id`
+- `funding_near_account_id`
+- `execution_mode` (`approval_required | agent_auto_copy`)
+- `agent_grant_reference` (nullable)
+- `max_usd_per_trade`
+- `max_daily_budget_usd`
+- `copy_scale_bps`
+- `max_price_drift_bps`
+- `copy_spot_1click`
+- `copy_vaults`
+- `copy_lending`
+- `copy_lp`
+- `status` (`active | paused | frozen`)
+- `created_at`
+
 ### `audit_events`
 
 - `id`
@@ -1578,9 +1765,13 @@ Guardrails are a product feature, not just UI settings. They must be enforced by
 - Maximum exposure per strategy type.
 - Maximum exposure per token/asset.
 - Maximum exposure per chain.
+- Maximum total RWA / tokenized equity exposure (`maxRwaExposurePercent`) and per-ticker equity cap (`maxEquitySingleAssetPercent`).
+- Maximum equity NAV deviation (`maxNavDeviationBps`) between on-chain execution quote and TradFi Reference NAV.
+- Off-hours equity execution policy (`allowOffHoursExecution`, gating execution when traditional markets are `CLOSED`).
+- Copytrading constraints: strict non-memecoin allowlist (`noMemecoinsOnly`), maximum trade size per copied action (`maxUsdPerCopyTrade`), maximum daily copy spend (`maxDailyCopyBudgetUsd`), copy scale ratio (`copyScaleBps`), and maximum price drift from the leader wallet's execution block (`maxPriceDriftFromLeaderBps`).
 - Approved protocol list.
 - Approved chain list.
-- Approved token list.
+- Approved token list (verified by `(chainId, contractAddress)`).
 - Maximum slippage.
 - Maximum gas cost.
 - Minimum expected net arbitrage profit.
@@ -1592,7 +1783,7 @@ Guardrails are a product feature, not just UI settings. They must be enforced by
 
 ### 14.2 Hard and soft constraints
 
-**Hard constraints** block execution. Examples: an asset is not approved; max allocation is exceeded; quote has expired; slippage exceeds maximum; destination is not allowlisted; there is insufficient balance.
+**Hard constraints** block execution. Examples: an asset is not approved; a token belongs to an excluded memecoin category during copytrading; a copy trade exceeds `maxPriceDriftFromLeaderBps`, `maxUsdPerCopyTrade`, or `maxDailyCopyBudgetUsd`; max allocation is exceeded; quote has expired; slippage exceeds maximum; equity on-chain quote exceeds `maxNavDeviationBps` vs Reference NAV; market is `CLOSED` while `allowOffHoursExecution` is false; destination is not allowlisted; there is insufficient balance.
 
 **Soft constraints** create warnings or reduce opportunity ranking. Examples: protocol has a shorter operating history; APY has high variability; pool volume is declining; a data source is stale but not yet outside a hard freshness threshold.
 
@@ -1616,7 +1807,7 @@ Before every transaction:
 
 ### 14.4 User approval requirements
 
-For MVP, require explicit user confirmation for all capital deployment and withdrawals. The user must see the action and relevant contract/protocol before signing.
+Require explicit user confirmation for all capital deployment, equity purchases/sales, and withdrawals, unless a user-signed bounded delegation policy is explicitly active. The user must see the action and relevant contract/protocol/issuer before signing.
 
 The interface must distinguish:
 
@@ -1624,6 +1815,7 @@ The interface must distinguish:
 - Depositing/supplying an asset.
 - Adding liquidity.
 - Swapping/transferring through 1Click.
+- Buying or selling a tokenized equity/RWA via a destination DEX/RFQ swap.
 - Withdrawing/redeeming.
 - Closing an LP position.
 
@@ -1667,7 +1859,22 @@ Track both underlying assets, LP position/range, claimable fees, incentives and 
 
 Record actual buy input, actual sell output, all gas, DEX fees, protocol/solver fees, bridge/rebalance costs and actual received amounts. Only call profit realised when the required trade cycle is complete and reconciled. If one leg is open or failed, mark the trade as partial/open and show current inventory exposure, not as a completed profitable arbitrage.
 
-### 15.6 Price sources
+### 15.6 Tokenized equity & RWA accounting
+
+Track exact share balances (`amountAtomic` + `decimals`, supporting fractional shares), USD cost basis per lot/position, issuer & wrapper type (`total_return_reinvesting | price_tracker`), and all cross-chain staging and swap fees.
+
+- Never present trailing historical stock return or dividend yield as guaranteed or recurring "APY."
+- Separate **price return / unrealised P&L** (against both TradFi Reference NAV and current live on-chain exit quote) from **realised P&L** after sell orders settle.
+- Record corporate-action and dividend adjustments according to the verified wrapper's actual mechanism.
+
+### 15.7 Copytrading accounting
+
+Track every mirrored trade/position separately from the leader wallet's own fills so follower returns never disguise slippage or execution latency:
+
+- Record the leader wallet's reference block/fill price alongside the follower's actual quote price, `priceDriftBps`, cross-chain/DEX fees, and realised vs unrealised P&L.
+- Separate copytrading yield/fees from underlying asset price movement, and aggregate returns cleanly per `copy_subscription`.
+
+### 15.8 Price sources
 
 Every valuation must store:
 
@@ -1675,8 +1882,8 @@ Every valuation must store:
 - Source/provider.
 - Source token/market identifier.
 - Observation timestamp.
-- Price type (spot, TWAP, mark, quote-derived, etc.).
-- Confidence/freshness state.
+- Price type (spot, TWAP, mark, quote-derived, TradFi Reference NAV, etc.).
+- Confidence/freshness state (and for equities/RWAs: exchange session state `OPEN | EXTENDED | CLOSED`).
 
 If no reliable price is available, show the position as unpriced or stale rather than silently using zero or an unrelated token's price.
 
@@ -1728,161 +1935,86 @@ If no reliable price is available, show the position as unpriced or stale rather
 
 The product should disclose that:
 
-- DeFi strategies carry smart-contract, market, liquidity, bridge, oracle, validator, issuer and execution risks.
-- APYs and rewards are variable and may change or disappear.
+- DeFi and tokenized-equity strategies carry smart-contract, market, liquidity, bridge, oracle, validator, issuer, custodian, and execution risks.
+- APYs and rewards are variable and may change or disappear; historical equity or RWA returns never represent guaranteed future returns or APY.
 - Past performance does not guarantee future results.
-- Yield and principal are not guaranteed by NEAR Intents.
+- Yield and principal are not guaranteed by NEAR Intents or Capita.
 - Cross-chain swaps may fail or be refunded.
 - Arbitrage profit is not guaranteed and can become a loss.
-- The product is not a bank and does not provide guaranteed returns.
+- Tokenized equities are issuer-backed financial entitlements rather than direct exchange-traded brokerage accounts: they generally carry no shareholder voting rights, depend on issuer/custodian solvency, may trade at off-hours DEX premiums/discounts vs Reference NAV, and may enforce wallet allowlists or regional restrictions (such as US/Canada exclusions).
+- Copytrading historical wallet performance does not guarantee future returns: follower fills differ due to latency, price drift, and fees, and on-chain visibility does not reveal a leader wallet's off-chain exchange accounts or external perp hedges.
+- The product is not a bank, licensed broker-dealer, or investment adviser.
 
 This is a technical product specification, not legal advice. Obtain appropriate legal/compliance review before a public commercial launch.
 
 ---
 
-## 17. Hackathon track alignment
+## 17. Product capability pillars and security tiers
 
-The official NEAR Hackathon currently lists 13 tracks. The project should select only those it genuinely demonstrates.
+Rather than making unsupported marketing claims, every platform capability corresponds to verifiable backend guarantees:
 
-### 17.1 Primary track — Unstoppable DeFi (`defi`)
+### 17.1 Non-custodial cross-chain DeFi & RWA settlement
 
-**Official direction:** Build exchanges, perps, lending, vaults and trading agents that settle across chains through NEAR Intents. The track highlights trading, NEAR Intents and Chain Signatures.
+- Multi-wallet read aggregation across EVM (Base, Arbitrum One, Ethereum) and planned non-EVM expansion (Solana, NEAR).
+- Live 1Click quote, committed deposit, status tracking (`PENDING_DEPOSIT`, `KNOWN_DEPOSIT_TX`, `PROCESSING`, `SUCCESS`, `REFUNDED`, `FAILED`, `INCOMPLETE_DEPOSIT`), and explorer auditability.
+- Destination protocol adapters for Aave V3 lending, Uniswap V3 LP, and verified tokenized-equity DEX/RFQ execution (`Dinari dShares`, `Backed xStocks`, `Ondo Stocks`, `XAUT`).
 
-**Why this project fits:**
+### 17.2 Deterministic policy enforcement & defense
 
-- It manages lending and vault strategies.
-- It includes LP and cross-chain arbitrage workflows.
-- It uses NEAR Intents as a core cross-chain swap/settlement rail.
-- It allows users to define financial objectives and execute supported actions across chains.
+- User-configured limits enforced purely in deterministic backend code (`src/lib/policy/`) with persisted `AuditEvent` logs for every block, override refusal, and approval.
+- Strict separation between LLM proposals (`weightBps` + rationale) and exact `bigint` arithmetic + transaction construction.
+- Contract-verified asset registries preventing ticker spoofing and off-hours NAV spread blocks protecting equity orders.
 
-**What the demo should prove:**
+### 17.3 Verifiable AI inference privacy
 
-- A real 1Click quote is requested.
-- The user can see the selected input/output assets and quote details.
-- The user can execute or dry-run a supported flow.
-- The app tracks the resulting status, including failure/refund.
-- The strategy/position is reflected in the portfolio view.
-
-The official track prompt includes a cross-chain DCA vault example and specifically requires using the 1Click API for quote/deposit/status, handling `REFUNDED` and `FAILED` states, showing where funds sit, exposing explorer links and providing a dry-run mode. These are useful quality benchmarks for this project even though the product is not a DCA app.
-
-Track reference: [NEAR Hackathon — Unstoppable DeFi](https://nearhackathon.com/#tracks) and [official track prompt](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/01-defi.md).
-
-### 17.2 Potential secondary track — AI Security & Defense (`security`)
-
-**Official direction:** Build spending limits, policy engines, sandboxed wallets, reputation and scam detection; give AI money without handing it the keys to everything. The track highlights agent security, function-call keys and TEE attestation.
-
-**Why this project may fit:**
-
-- User-defined strategy limits and allowed protocol/asset lists.
-- Deterministic policy validation before execution.
-- User approval, action limits, destination constraints and emergency pause.
-- Optional use of NEAR Intents Agent API with owner-signed policies and bounded permissions.
-
-**Condition:** A UI settings form alone is not a strong security-track implementation. To claim this track credibly, the product must enforce policies in backend execution and, ideally, use a documented permissioned wallet/Agent API flow or another verifiable wallet-control mechanism. Do not claim Function Call Keys or sandboxing unless actually implemented and tested.
-
-Track reference: [official AI Security & Defense prompt](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/06-security.md).
-
-### 17.3 Optional track — Privacy & Private AI (`privacy`)
-
-**Official direction:** Confidential computation, private finance and AI that protects sensitive data. The track highlights private AI, TEE and NEAR AI Cloud.
-
-**Why it may fit:** Portfolio and wallet context can be sensitive, and the product intends to use NEAR AI Cloud with a private TEE model.
-
-**Condition:** Do not select this track just because the app calls NEAR AI Cloud. To make a credible privacy submission, implement and demonstrate the documented model privacy/attestation/verification flow, identify exactly what is protected, minimise server-side data retention and explain the privacy tier used. The official prompt asks builders to use a TEE-hosted model and show verification evidence.
-
-Track reference: [official Privacy & Private AI prompt](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/03-privacy.md).
-
-### 17.4 Tracks not recommended for this project
-
-- **AI Swarms:** Not a fit unless the product genuinely implements a market/coordinated economy of agents. One orchestrator with tools is not automatically a swarm.
-- **Agent Economy:** Not a fit unless agents actually earn, spend, negotiate, hire or pay for services/APIs/data.
-- **Autonomous Business:** The product is a user portfolio operator, not an AI-native company running procurement, sales and its own treasury.
-- **Investment Thesis:** Not the core purpose; the project manages user assets rather than making a long-term investment case for NEAR.
-- **Real-World Money:** Not the primary use case; the project is a DeFi portfolio product.
-- Other tracks do not match the current product definition.
-
-The hackathon form permits a project to select every track it genuinely fits. The project still has one submission.
-
-### 17.5 Hackathon submission requirements and dates
-
-As stated on the official site at the time this document was prepared:
-
-- Development ends: **14 November 2026, 23:59 UTC**.
-- Results announcement deadline: **18 November 2026, 23:59 UTC**.
-- Publish a **public repository**; judges cannot open a private repository.
-- Publish a public demo post on X stating that it was built at NEAR Hackathon, tagging `@NEARProtocol` and `#NEARHackathon`, with demo video or screenshots.
-- Submit both the repository link and demo post link.
-- Enter a NEAR wallet address for prize delivery; no wallet connection is required to submit.
-- The official site says Claude Code and Codex screen projects first to check they run and do what the README says; human judges make the final decisions.
-
-Official site: https://nearhackathon.com/
+- Portfolio and wallet context sent to NEAR AI Cloud uses explicitly documented gateway/enclave models only; attestation claims are surfaced accurately per the live NEAR AI Cloud catalogue tier in use.
 
 ---
 
-## 18. Hackathon MVP scope
+## 18. Production release phases & verification environments
 
-The product vision has four strategy categories and several modules. The hackathon must demonstrate one coherent end-to-end use case and avoid superficial implementations of every feature.
+### 18.1 Core functional requirements
 
-### 18.1 MVP objective
+The production platform delivers the full integrated loop:
 
-Prove that the platform can:
+1. Authenticate via self-custodial SIWE wallet session and read live on-chain balances across supported networks.
+2. Discover and compare live DeFi yield, lending, LP, cross-chain arbitrage, and tokenized equity/RWA opportunities using verified, timestamped data sources.
+3. Interpret natural-language portfolio goals via NEAR AI Cloud into structured, schema-validated strategy allocations.
+4. Enforce deterministic user guardrails (liquidity floor, protocol/chain/asset/RWA caps, slippage, arbitrage net profit, and NAV deviation bounds).
+5. Prepare and execute multi-step non-atomic flows (1Click staging + destination DEX/protocol calls) with explicit user wallet signatures and idempotency protection.
+6. Reconcile real settled balances, positions, unrealized/realized P&L, and audit history.
 
-1. Read a user's supported wallet portfolio.
-2. Discover and compare real DeFi opportunities using sourced data.
-3. Use AI to interpret a goal and create a structured strategy proposal.
-4. Enforce deterministic user guardrails.
-5. Use NEAR Intents for at least one real supported cross-chain quote/execution lifecycle or a clear dry-run if a live transaction cannot safely be completed.
-6. Track the operation and show the resulting position or status in the portfolio.
+### 18.2 Rollout stages
 
-### 18.2 Priority levels
+**Stage A — Core DeFi & 1Click Execution Foundation**
 
-**P0 — required for a coherent demo**
+- SIWE authentication and multi-chain wallet aggregation (Base, Arbitrum One).
+- Portfolio dashboard with timestamped valuations and live RPC balances.
+- Opportunity Explorer wired to live protocol/1Click data.
+- NEAR AI Cloud strategy builder + deterministic policy engine + full test coverage.
+- Complete 1Click swap/Earn committed quote, deposit, and terminal-state tracking.
 
-- Connect one supported EVM wallet.
-- Read supported token balances on a small number of chains.
-- Portfolio dashboard with timestamped balance values.
-- Opportunity Explorer with sourced data.
-- AI strategy builder using NEAR AI Cloud.
-- Structured strategy proposal.
-- Deterministic guardrail validation.
-- NEAR 1Click token discovery, dry quote and status handling.
-- A real execution path for at least one selected supported operation, if safely testable.
-- Transaction history and strategy state.
-- Good sample/demo mode so judges can try the product without funds.
+**Stage B — Direct DeFi Protocol & Tokenized Equity Integration**
 
-**P1 — implement if P0 is stable**
+- Direct Aave V3 lending supply/withdraw and Uniswap V3 concentrated LP adapters.
+- Arbitrage scanner with two-chain pool discovery and trade-size net-profit calculation.
+- Tokenized equities & RWAs module (`Strategy E`): Arbitrum equity DEX/RFQ adapter (`Dinari dShares`, `Backed xStocks`), live `XAUT` routing via 1Click, Ethereum `Ondo Stocks` expansion, TradFi Reference NAV feed + off-hours spread guardrails, buy/sell execution workflows, and issuer/jurisdiction disclosures.
+- Automated health alerts and position snapshot workers.
 
-- One direct lending protocol adapter.
-- One stablecoin LP pool adapter.
-- A vault integration through 1Click Earn if the live receipt-token catalogue and quote support it.
-- Arbitrage scanner with two-chain pool discovery and trade-size-specific net-profit calculation.
-- Alerts and position snapshots.
+**Stage C — Multi-Chain, Bounded Automation & Copytrading**
 
-**P2 — defer unless exceptionally straightforward**
+- Cross-chain wallet copytrading (`Strategy F`, zero memecoins): Zerion / DeBank / Sim by Dune Wallet X-Ray + Top Performers leaderboard, NEAR AI Cloud trader analysis, unified NEAR funding/setup, `Mode A` Copy-with-Approval, and `Mode B` Agent API + Chain Signatures automated mirroring across spot tokens, `1Click Earn` vaults, Aave lending, and Uniswap V3 LP ranges.
+- Non-EVM chain and wallet signing expansion (Solana for `xStocks`/Ondo liquidity, NEAR Intents `mt` accounts).
+- Optional NEAR Intents Agent API bounded delegated execution with owner-signed limits and emergency freeze.
+- Advanced analytics, tax/accounting exports, and multi-wallet portfolio consolidation.
 
-- Full automated multi-leg arbitrage execution.
-- Fully autonomous autopilot.
-- Multiple chains beyond the chosen first two or three.
-- Multiple lending/LP protocols.
-- Complex multi-agent orchestration.
-- DAO treasury/multisig product features.
-- Custom smart contracts that duplicate an existing NEAR or protocol capability.
+### 18.3 Simulation & dry-run verification mode
 
-### 18.3 Recommended demo narrative
+Because NEAR Intents 1Click operates directly on mainnet without a separate testnet, the application maintains an explicit `APP_DATA_MODE` (`sample | dry_run | live`):
 
-A user connects a wallet with supported stablecoins. The dashboard shows balances. The user asks the AI to find a suitable way to deploy part of the USDC while keeping a specified amount liquid. The AI retrieves available opportunities, compares lending/vault/LP options and returns a structured allocation. The policy engine rejects or adjusts allocations that violate limits. The user opens an opportunity, receives a fresh quote, approves the transaction and sees the intent status update. The portfolio view then reflects the resulting position or, in dry-run mode, clearly labels the transaction as simulated and does not claim the funds moved.
-
-If cross-chain arbitrage is shown, demonstrate candidate discovery, exact token identity, real trade-size quotes and full estimated costs. Do not present a projected spread as realised profit.
-
-### 18.4 Demo mode requirements
-
-Because NEAR Intents has no testnet, provide a no-funds demo route:
-
-- Use `dry: true` to fetch/validate real quotes without executing.
-- Use clearly labelled fictional sample portfolio data for the dashboard if needed.
-- Make simulated wallet/position data visibly different from verified on-chain data.
-- Never fabricate a transaction hash or show a simulated transaction as successful on-chain.
-- Include links to genuine explorer records for real test transactions only.
+- **`dry_run` mode:** Uses live balances, live opportunity feeds, and real `dry: true` 1Click/DEX quotes so full workflows can be verified with zero capital at risk.
+- **`sample` mode:** Uses clearly banner-labelled fixtures for UI/regression testing without mixing into live accounting.
+- **No fabricated execution:** Never fabricate transaction hashes, committed deposit addresses, or simulated profits as realised on-chain P&L.
 
 ---
 
@@ -1943,6 +2075,22 @@ A feature is not complete merely because its UI is present. Use these testable c
 - Each leg has its own status.
 - Partial execution is represented as an open/exposed trade, not completed profit.
 
+### Tokenized equities & RWAs
+
+- Equity and RWA identity is keyed by `(chainId, contractAddress)` plus issuer and wrapper metadata, never ticker symbol alone (blocking lookalike memecoins such as `SPX`).
+- Listings display both TradFi Reference NAV (with exchange session state `OPEN | EXTENDED | CLOSED`) and live on-chain DEX/RFQ execution price.
+- Policy engine deterministically blocks or gates trades exceeding `maxRwaExposurePercent`, `maxEquitySingleAssetPercent`, or `maxNavDeviationBps`, and blocks `CLOSED`-market execution when `allowOffHoursExecution = false`.
+- Buy and sell flows label two-step non-atomic execution (1Click staging + destination DEX/RFQ swap) clearly and never present historical equity returns as APY.
+- Issuer counterparty, corporate-action, and regional/allowlist disclosures are shown prior to signature.
+
+### Copytrading
+
+- Entering a trader address or handle resolves verified cross-chain holdings, vaults, lending, and LP positions from Zerion / DeBank / Sim by Dune with observation timestamps and `(chainId, contractAddress)` verification.
+- Top Performers rankings and automated/assisted copy paths deterministically exclude memecoins and unverified tokens.
+- Copy guardrails block execution when `maxPriceDriftFromLeaderBps`, `maxUsdPerCopyTrade`, or `maxDailyCopyBudgetUsd` is exceeded.
+- Spot-only/external-hedge warnings and follower-vs-leader fill accounting (`priceDriftBps`) are surfaced accurately.
+- Automated mirroring uses bounded Agent API grants / Chain Signatures set up from NEAR with working pause and emergency freeze controls.
+
 ### Security
 
 - No seed phrase/private key handling.
@@ -1964,11 +2112,11 @@ Read this entire file before implementing a feature. Inspect the repository, cur
 
 ### 20.2 Preserve scope
 
-- Do not turn the project into an AI agency, agent marketplace, DAO treasury manager or generic chatbot.
-- Do not add unrelated strategies or networks without explicit product approval.
-- The four strategy categories are yield vaults, lending, stablecoin LP and cross-chain arbitrage.
+- Do not turn the project into an AI agency, agent marketplace or generic chatbot.
+- Do not add unrelated asset classes (including memecoin copytrading) or networks without explicit product approval.
+- The six core strategy categories are yield vaults, lending, stablecoin LP, cross-chain arbitrage, tokenized equities & RWAs, and cross-chain wallet copytrading (non-memecoin spot, vaults, lending & LP).
 - Build shared portfolio, opportunity, policy, execution and monitoring infrastructure.
-- Prefer one coherent end-to-end workflow over multiple nonfunctional pages.
+- Prefer coherent, verified end-to-end workflows over superficial mock screens.
 
 ### 20.3 Do not assume integrations exist
 
@@ -2027,7 +2175,7 @@ For each completed feature, report:
 
 ### 20.9 Documentation
 
-Keep README setup, environment variables, local run instructions, demo mode, integration configuration, security notes and limitations updated. The hackathon judges use the README to understand and run the project.
+Keep README setup, environment variables, local run instructions, data/verification mode, integration configuration, security notes and limitations updated so engineers and operators can run and verify the platform reliably.
 
 ---
 
@@ -2074,7 +2222,7 @@ These items must be researched and documented before they become code assumption
 - Verify canonical/bridged token mapping.
 - Select discovery data provider.
 - Select exact quote sources for both buy and sell legs.
-- Decide whether the MVP demonstrates scanning only, assisted execution, or a specific fully executable trade.
+- Define execution progression across scanning, assisted two-leg execution, and inventory rebalancing.
 - Define partial-fill and inventory-rebalancing behaviour.
 
 ### 21.6 AI
@@ -2092,46 +2240,61 @@ These items must be researched and documented before they become code assumption
 - Read latest beta status and terms.
 - Verify supported owner wallet types.
 - Confirm actions relevant to this app.
-- Decide whether it is appropriate for a hackathon MVP or should remain a post-hackathon extension.
+- Gate delegated automation behind explicit user opt-in and security audit completion.
+
+### 21.8 Tokenized equities & RWAs
+
+- Verify exact verified contract addresses and decimal precision for each supported issuer deployment on Arbitrum (`Dinari dShares`, `Backed xStocks`), Ethereum (`Ondo Stocks`, `XAUT`), and Solana (`xStocks`, Ondo).
+- Select licensed equity Reference NAV + market calendar data provider and verify freshness SLA.
+- Verify destination DEX/RFQ aggregator quote and calldata paths (`0x` / CoW / Uniswap / issuer router) for both buy and sell directions.
+- Confirm transfer-allowlist / KYC and jurisdictional compliance flow per issuer before enabling live execution for a token.
+
+### 21.9 Cross-chain copytrading
+
+- Evaluate commercial API tiers and rate limits for **Zerion**, **DeBank Cloud**, and **Sim by Dune** (`Wallet X-Ray` + `Top Performers` pipelines).
+- Confirm canonical memecoin exclusion list / verified asset filter over 1Click `/v0/tokens`.
+- Validate NEAR Intents Agent API grant creation and Chain Signatures (`ECDSA` / `Ed25519`) gas abstraction UX for unified NEAR setup.
+- Determine latency SLA and default `maxPriceDriftFromLeaderBps` thresholds per strategy type (`spot` vs `vaults`/`lending`).
 
 ---
 
 ## 22. Recommended development sequence
 
-The exact sequence should adapt to the existing repository, but the dependency order should remain.
+The exact sequence adapts to the existing repository (`project-docs/build-guide.md`), maintaining dependency order:
 
 1. **Repository reconnaissance:** inspect stack, current routes, wallet support, database and deploy process.
-2. **Lock the demo use case:** choose one or two chains, one lending or vault route, one LP pool, and the arbitrage demo path.
-3. **Prove NEAR 1Click first:** fetch tokens, request dry quote, inspect response, implement status mapping and test the explorer link.
-4. **Build portfolio reads:** connect wallet, fetch balances and normalise token identity.
-5. **Build strategy/opportunity contracts:** typed opportunity data and deterministic calculators.
+2. **Lock core chain & strategy adapters:** configure Base and Arbitrum One (`XAUT`/Ethereum & Solana staged as chain adapters mature), lending/vault routes, LP pools, arbitrage pairs, and verified equity contracts.
+3. **Prove NEAR 1Click first:** fetch tokens, request dry quote, inspect response, implement status mapping and explorer links.
+4. **Build portfolio reads:** connect SIWE wallet(s), fetch balances and normalise token identity.
+5. **Build strategy/opportunity contracts:** typed opportunity data, TradFi NAV feeds, and deterministic calculators.
 6. **Integrate NEAR AI Cloud:** model call, structured output and read-only tool calling.
-7. **Implement guardrails:** schema, hard validation, UI configuration and test suite.
-8. **Integrate one direct DeFi protocol:** lending or LP with add/remove position flow.
+7. **Implement guardrails:** schema, hard validation (including `maxRwaExposurePercent` and `maxNavDeviationBps`), UI configuration and test suite.
+8. **Integrate direct protocol & equity adapters:** lending/LP add/remove and destination equity DEX/RFQ buy/sell flows.
 9. **Build arbitrage discovery:** verify pair identity, compare pool data, request executable quotes and calculate net profit.
 10. **Build strategy tracking:** persist transactions and positions; reconcile on-chain outcomes.
-11. **Run end-to-end tests:** include pending, success, failed, refunded, expired quote and partial workflow states.
-12. **Prepare demo and README:** make live/dry-run/sample states obvious; publish a public repository and demo post.
+11. **Run end-to-end tests:** include pending, success, failed, refunded, expired quote, off-hours spread rejection, and partial workflow states.
+12. **Maintain operator & engineering docs:** keep setup, live/dry-run/sample mode behavior, disclosures, and limitations accurate.
 
 ---
 
-## 23. Product roadmap beyond the hackathon
+## 23. Product roadmap
 
-### Phase 1 — Core individual DeFi operator
+### Phase 1 — Core individual DeFi & RWA operator
 
 - Cross-chain portfolio view.
-- Yield vault, lending, LP and arbitrage opportunity categories.
+- Yield vault, lending, LP, arbitrage, and tokenized equity/RWA opportunity categories.
 - AI-assisted strategy builder.
-- Manual approval and user guardrails.
-- NEAR Intents execution for supported routes.
+- Manual approval and user guardrails (including RWA caps and NAV spread protection).
+- NEAR Intents 1Click execution for supported routes + destination protocol/equity adapters.
 - Position and P&L monitoring.
 
-### Phase 2 — Better execution and automation
+### Phase 2 — Better execution, copytrading and automation
 
-- More lending and LP integrations.
+- More lending, LP, and equity issuer integrations (Ethereum Ondo Stocks, Solana `xStocks`).
+- Cross-chain wallet copytrading (`Strategy F`, zero memecoins) via Zerion / DeBank / Sim by Dune + unified NEAR setup (1Click + Agent API + Chain Signatures).
 - Better arbitrage execution with inventory management.
 - Optional NEAR Intents Agent API for bounded autonomy, subject to beta status and safety review.
-- Automated alerts and proposed rebalances.
+- Automated alerts, yield-to-equity auto-allocation schedules, and proposed rebalances.
 - Strategy backtesting and historical performance analysis.
 
 ### Phase 3 — Advanced portfolio intelligence
@@ -2149,8 +2312,6 @@ The exact sequence should adapt to the existing repository, but the dependency o
 - Governance/multisig workflows.
 - Role-based access and audit reports.
 - Treasury-specific strategy constraints.
-
-These are roadmap concepts, not current MVP requirements.
 
 ---
 
@@ -2185,6 +2346,8 @@ These are roadmap concepts, not current MVP requirements.
 - Lending APY and utilisation changes.
 - Vault share value/underlying value tracking accuracy.
 - Arbitrage estimated versus realised P&L.
+- Tokenized equity price return vs TradFi Reference NAV and realised off-hours spread slippage.
+- Copytrading follower fill drift (`priceDriftBps`) vs leader reference block and realised net return.
 - Strategy policy violations blocked.
 
 Do not use TVL or projected APY as the only success metrics.
@@ -2193,9 +2356,9 @@ Do not use TVL or projected APY as the only success metrics.
 
 ## 25. Source references and research notes
 
-**Research date:** 9 November 2026. API catalogues, fees, chain/token support, model availability and hackathon requirements can change. Re-check live documentation before implementation and before submission.
+**Research updated:** 12 November 2026. API catalogues, fees, chain/token support, equity issuer deployments, and model availability can change. Re-check live documentation and contract registries before shipping adapter updates.
 
-### NEAR Hackathon
+### Reference prompts and ecosystem tracks
 
 1. [NEAR Hackathon official website and tracks](https://nearhackathon.com/)
 2. [Unstoppable DeFi official track prompt](https://github.com/nearai/near-hackathon-prompt-examples/blob/main/tracks/01-defi.md)
@@ -2259,9 +2422,9 @@ Do not use TVL or projected APY as the only success metrics.
 
 ## 26. Final project definition
 
-The AI Cross-Chain Portfolio Operator is a single application for individual crypto holders to view supported assets and DeFi positions across chains, discover yield-vault, lending, stablecoin LP and cross-chain arbitrage opportunities, and deploy capital through strategies that respect user-defined constraints.
+**Capita (AI Cross-Chain Portfolio Operator)** is a single non-custodial application for individual crypto holders to view supported assets, DeFi positions, and tokenized equities across chains, discover yield-vault, lending, stablecoin LP, cross-chain arbitrage, tokenized equity/RWA, and non-memecoin copytrading opportunities, and deploy capital through strategies that respect user-defined constraints.
 
-AI provides research, reasoning, strategy orchestration and explanations. Deterministic systems provide market calculations, token verification, risk checks, accounting and policy enforcement. NEAR Intents provides the cross-chain swap and settlement layer for supported assets and routes; direct integrations with DeFi protocols handle lending, LP and vault operations where needed. NEAR AI Cloud provides the inference layer, and the optional NEAR Intents Agent API may enable bounded autonomous execution after its experimental status and security implications are reviewed.
+AI provides research, reasoning, wallet analysis, strategy orchestration and explanations. Deterministic systems provide market calculations, token and equity contract verification, NAV-spread and price-drift checks, accounting and policy enforcement. NEAR Intents provides the cross-chain swap and settlement layer for supported assets, yield vaults (`1Click Earn`), `XAUT`, and cross-chain `USDC` staging; direct integrations with DeFi protocols and verified DEX/RFQ aggregators handle lending, LP, and tokenized equity buy/sell execution. NEAR AI Cloud provides the inference layer, while NEAR Intents Agent API and NEAR Chain Signatures enable unified NEAR-funded cross-chain DeFi and copytrading execution under explicit owner-signed limits and user opt-in.
 
 **The product's central workflow is: discover → evaluate → allocate → approve → execute → monitor.**
 

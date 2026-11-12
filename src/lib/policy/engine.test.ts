@@ -45,6 +45,12 @@ function portfolio(overrides: Partial<PortfolioExposure> = {}): PortfolioExposur
 
 function proposal(...weights: Array<[string, number]>): AiProposal {
   return {
+    strategyName: "Test Multi-Chain Strategy",
+    category: "yielding",
+    summary: "Test strategy proposal.",
+    howItWorks: ["Test step 1", "Test step 2"],
+    targetApy: 5.0,
+    decisionPoints: ["Test decision point"],
     objectiveSummary: "Grow stablecoin yield while keeping a 30% liquid buffer.",
     legs: weights.map(([opportunityId, weightBps]) => ({
       opportunityId,
