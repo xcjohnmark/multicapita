@@ -1,4 +1,5 @@
 import { arbitrum, base } from "viem/chains";
+import { env } from "@/lib/env";
 
 /**
  * MVP chain scope: Base (8453) and Arbitrum One (42161).
@@ -30,7 +31,7 @@ export const SUPPORTED_CHAINS: readonly SupportedChain[] = [
       address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
       decimals: 6,
     },
-    rpcUrl: process.env.RPC_URL_BASE ?? "https://mainnet.base.org",
+    rpcUrl: env.RPC_URL_BASE ?? "https://mainnet.base.org",
   },
   {
     id: arbitrum.id,
@@ -43,7 +44,7 @@ export const SUPPORTED_CHAINS: readonly SupportedChain[] = [
       address: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
       decimals: 6,
     },
-    rpcUrl: process.env.RPC_URL_ARBITRUM ?? "https://arb1.arbitrum.io/rpc",
+    rpcUrl: env.RPC_URL_ARBITRUM ?? "https://arb1.arbitrum.io/rpc",
   },
 ] as const;
 

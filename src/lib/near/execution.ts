@@ -1,8 +1,8 @@
 import { encodeFunctionData, erc20Abi, isAddress, type Address } from "viem";
 import { getChain } from "@/lib/chains";
 import { applySlippageDown } from "@/lib/finance/amounts";
+import { getClient } from "./registry";
 import {
-  getOneClickClient,
   isCommittedQuote,
   OneClickError,
   type OneClickQuote,
@@ -53,7 +53,7 @@ export type PrepareMoveInput = {
   walletAddress: Address;
   slippageBps: number;
   now?: Date;
-  client?: ReturnType<typeof getOneClickClient>;
+  client?: ReturnType<typeof getClient>;
 };
 
 /** Committed quotes are valid for roughly ten minutes; leave a minute for the deposit to land. */
@@ -80,7 +80,7 @@ export async function prepareCrossChainMove(input: PrepareMoveInput): Promise<Pr
   }
 
   const now = input.now ?? new Date();
-  const client = input.client ?? getOneClickClient();
+  const client = input.client ?? getClient();
   const { tokens } = await client.getTokens();
 
   const findUsdc = (chain: typeof origin) =>

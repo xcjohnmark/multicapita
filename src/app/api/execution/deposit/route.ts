@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/db/client";
-import { getOneClickClient } from "@/lib/near/oneclick";
+import { getClient } from "@/lib/near/registry";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await getOneClickClient().submitDeposit(quote.depositAddress, txHash);
+    await getClient().submitDeposit(quote.depositAddress, txHash);
   } catch (error) {
     return NextResponse.json(
       {

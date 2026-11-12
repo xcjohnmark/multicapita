@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SUPPORTED_CHAINS } from "@/lib/chains";
-import { getOneClickClient, OneClickError } from "@/lib/near/oneclick";
+import { getClient } from "@/lib/near/registry";
+import { OneClickError } from "@/lib/near/oneclick";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,7 +13,7 @@ export const revalidate = 0;
  */
 export async function GET() {
   try {
-    const { tokens, fetchedAt } = await getOneClickClient().getTokens();
+    const { tokens, fetchedAt } = await getClient().getTokens();
 
     const supported = tokens.filter((token) =>
       SUPPORTED_CHAINS.some((chain) => chain.oneClickBlockchain === token.blockchain),

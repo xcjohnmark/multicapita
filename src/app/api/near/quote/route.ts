@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getOneClickClient, OneClickError } from "@/lib/near/oneclick";
+import { getClient } from "@/lib/near/registry";
+import { OneClickError } from "@/lib/near/oneclick";
 import { quoteInputSchema } from "@/lib/near/route-preview";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const client = getOneClickClient();
+    const client = getClient();
     const { tokens, fetchedAt } = await client.getTokens();
     const origin = tokens.find((t) => t.assetId === input.originAssetId);
     const destination = tokens.find((t) => t.assetId === input.destinationAssetId);

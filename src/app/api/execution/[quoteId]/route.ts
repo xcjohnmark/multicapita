@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/db/client";
-import { getOneClickClient, TERMINAL_STATUSES } from "@/lib/near/oneclick";
+import { getClient } from "@/lib/near/registry";
+import { TERMINAL_STATUSES } from "@/lib/near/oneclick";
+import {
+  isTerminalQuoteStatus,
+  parseQuoteStatus,
+  providerStatusToQuoteStatus,
+} from "@/lib/domain/status";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -8,20 +14,11 @@ export const dynamic = "force-dynamic";
 /**
  * Poll settlement state for a prepared move.
  *
- * Terminal states are mapped onto the local Quote status and returned verbatim. An unknown
- * provider state is surfaced as-is and is never treated as success.
+ * The provider status is returned verbatim. The local status is a validated mapping; an unknown
+ * provider state becomes `unknown` and is never displayed as success or silently coerced to
+ * `processing`. Every observed transition is appended to `QuoteStatusEvent`, so the timeline is
+ * reconstructable rather than inferred from the current row.
  */
-
-const STATUS_MAP: Record<string, string> = {
-  SUCCESS: "success",
-  FAILED: "failed",
-  REFUNDED: "refunded",
-  INCOMPLETE_DEPOSIT: "incomplete_deposit",
-  PENDING_DEPOSIT: "deposited",
-  KNOWN_DEPOSIT_TX: "deposited",
-  PROCESSING: "processing",
-};
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ quoteId: string }> },
@@ -47,12 +44,38 @@ export async function GET(
     );
   }
 
-  const status = await getOneClickClient().getStatus(quote.depositAddress);
-  const mapped = STATUS_MAP[status.status] ?? "processing";
+  const status = await getClient().getStatus(quote.depositAddress);
+  const localStatus = providerStatusToQuoteStatus(status.status);
+  const previous = parseQuoteStatus(quote.status);
 
-  if (status.isTerminal) {
-    await prisma.quote.update({ where: { id: quote.id }, data: { status: mapped } });
+  if (localStatus !== "unknown" && localStatus !== previous) {
+    await prisma.$transaction([
+      prisma.quote.update({ where: { id: quote.id }, data: { status: localStatus } }),
+      prisma.quoteStatusEvent.create({
+        data: {
+          quoteId: quote.id,
+          providerStatus: status.status,
+          localStatus,
+          raw: (status.raw ?? null) as object,
+        },
+      }),
+    ]);
+  } else if (localStatus === "unknown") {
+    await prisma.quoteStatusEvent.create({
+      data: {
+        quoteId: quote.id,
+        providerStatus: status.status,
+        localStatus: "unknown",
+        raw: (status.raw ?? null) as object,
+      },
+    });
   }
+
+  const events = await prisma.quoteStatusEvent.findMany({
+    where: { quoteId: quote.id },
+    orderBy: { observedAt: "asc" },
+    select: { providerStatus: true, localStatus: true, observedAt: true },
+  });
 
   return NextResponse.json({
     data: {
@@ -60,10 +83,16 @@ export async function GET(
       status: status.status,
       isTerminal: status.isTerminal,
       terminalStates: [...TERMINAL_STATUSES],
+      localStatus,
+      localTerminal: isTerminalQuoteStatus(localStatus),
       correlationId: status.correlationId ?? quote.quoteReference,
       updatedAt: status.updatedAt ?? null,
-      localStatus: mapped,
       depositAddress: quote.depositAddress,
+      timeline: events.map((event) => ({
+        providerStatus: event.providerStatus,
+        localStatus: event.localStatus,
+        observedAt: event.observedAt.toISOString(),
+      })),
       note:
         "A 1Click swap settles one leg. Multi-leg strategies are a sequence of independently confirmed steps.",
     },

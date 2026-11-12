@@ -53,8 +53,22 @@ export type MoveEvaluation = {
   minimumOutputAtomic: bigint;
 };
 
-/** Below this, fixed per-quote costs dominate; observed Earn quotes returned "no liquidity". */
-export const MIN_MOVE_ATOMIC = 10_000_000n; // 10 USDC at 6 decimals
+/**
+ * Below this many whole tokens, fixed per-quote costs dominate: 10 USDC Earn quotes returned
+ * "no liquidity". Expressed in whole tokens so the atomic threshold is derived from the token's
+ * own decimals rather than assuming six.
+ */
+export const MIN_MOVE_UNITS = 10;
+
+export function minMoveAtomic(decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) {
+    throw new Error(`Invalid token decimals: ${decimals}`);
+  }
+  return BigInt(MIN_MOVE_UNITS) * 10n ** BigInt(decimals);
+}
+
+/** USDC convenience constant. New code should call `minMoveAtomic(token.decimals)`. */
+export const MIN_MOVE_ATOMIC = minMoveAtomic(6);
 
 /**
  * Hard ceiling on slippage for a stablecoin cross-chain move, independent of the user's guardrail.

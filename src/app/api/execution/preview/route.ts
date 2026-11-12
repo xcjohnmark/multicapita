@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getChain } from "@/lib/chains";
 import { loadGuardrails, moveBodySchema } from "@/lib/execution/api";
 import { parseMoveAmount, previewMove, balancesToJson, evaluationToJson } from "@/lib/execution/move";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
@@ -44,7 +45,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const amount = parseMoveAmount(parsed.data.amount);
+  const amount = parseMoveAmount(
+    parsed.data.amount,
+    getChain(parsed.data.fromChainId)?.usdc.decimals ?? 6,
+  );
   if (!amount) {
     return NextResponse.json(
       { error: { message: "Amount could not be converted exactly to atomic units." } },

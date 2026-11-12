@@ -14,6 +14,7 @@
  */
 
 import { z } from "zod";
+import { env } from "@/lib/env";
 
 export const DEFAULT_BASE_URL = "https://1click.chaindefuser.com";
 const DEFAULT_TIMEOUT_MS = 20_000;
@@ -172,11 +173,8 @@ export class OneClickClient {
   private tokenCache: TokenCacheEntry | null = null;
 
   constructor(options: OneClickClientOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? process.env.ONECLICK_BASE_URL ?? DEFAULT_BASE_URL).replace(
-      /\/+$/,
-      "",
-    );
-    this.jwt = options.jwt ?? process.env.ONECLICK_JWT ?? undefined;
+    this.baseUrl = (options.baseUrl ?? env.ONECLICK_BASE_URL).replace(/\/+$/, "");
+    this.jwt = options.jwt ?? env.ONECLICK_JWT;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.useCache = options.cache ?? true;

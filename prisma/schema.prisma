@@ -38,6 +38,7 @@ model User {
   transactions      Transaction[]
   positions         Position[]
   auditEvents       AuditEvent[]
+  idempotencyKeys   IdempotencyKey[]
 }
 
 model Wallet {
@@ -287,12 +288,30 @@ model Quote {
   createdAt            DateTime @default(now())
   status               String   @default("quoted") // quoted | expired | deposited | processing | success | failed | refunded | incomplete_deposit
 
-  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  allocation StrategyAllocation? @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allocation StrategyAllocation?  @relation(fields: [allocationId], references: [id], onDelete: SetNull)
   transactions Transaction[]
+  statusEvents QuoteStatusEvent[]
 
   @@index([userId, createdAt])
   @@index([status])
+}
+
+/**
+ * Append-only provider status timeline. The current status on `Quote` is a cache; this is the
+ * record. Every poll that changes state writes a row, including unknown provider states.
+ */
+model QuoteStatusEvent {
+  id             String   @id @default(cuid())
+  quoteId        String
+  providerStatus String
+  localStatus    String
+  raw            Json?
+  observedAt     DateTime @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId, observedAt])
 }
 
 model Transaction {
@@ -363,6 +382,26 @@ model PositionSnapshot {
   position Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
 
   @@index([positionId, snapshotAt])
+}
+
+// ---------------------------------------------------------------------------
+// Idempotency — a retried request must not create a second deposit address
+// ---------------------------------------------------------------------------
+
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  userId       String
+  scope        String // prepare | deposit | strategy.propose
+  key          String
+  requestHash  String
+  statusCode   Int
+  responseJson Json?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope, key])
+  @@index([createdAt])
 }
 
 // ---------------------------------------------------------------------------

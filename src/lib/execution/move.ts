@@ -2,13 +2,14 @@ import { getChain } from "@/lib/chains";
 import { DEFAULT_GUARDRAILS, type Guardrails } from "@/lib/domain/strategy";
 import { applySlippageDown, parseDecimalToAtomic } from "@/lib/finance/amounts";
 import { env } from "@/lib/env";
-import { getOneClickClient, type OneClickQuote, type OneClickToken } from "@/lib/near/oneclick";
+import { getClient } from "@/lib/near/registry";
+import { type OneClickQuote, type OneClickToken } from "@/lib/near/oneclick";
 import { buildDepositInstruction, prepareCrossChainMove } from "@/lib/near/execution";
 import {
   assertExecutionAllowed,
   evaluateCrossChainMove,
   MAX_CROSS_CHAIN_SLIPPAGE_BPS,
-  MIN_MOVE_ATOMIC,
+  minMoveAtomic,
   type ExecutionViolation,
   type MoveEvaluation,
 } from "@/lib/policy/execution";
@@ -33,9 +34,9 @@ import { readWalletBalances, type WalletBalances } from "@/lib/wallet/balances";
 
 export type MoveAmount = { display: string; atomic: bigint };
 
-export function parseMoveAmount(display: string): MoveAmount | null {
+export function parseMoveAmount(display: string, decimals = 6): MoveAmount | null {
   try {
-    const atomic = parseDecimalToAtomic(display, 6);
+    const atomic = parseDecimalToAtomic(display, decimals);
     return { display, atomic };
   } catch {
     return null;
@@ -87,6 +88,7 @@ export function evaluateMove(input: {
   balances: MoveBalances;
   guardrails: Guardrails;
   expectedOutputAtomic: bigint;
+  decimals: number;
 }): MoveEvaluation {
   const { balances, guardrails } = input;
   const origin = balances.totals[input.fromChainId] ?? 0n;
@@ -106,7 +108,7 @@ export function evaluateMove(input: {
     slippageBps: Math.min(guardrails.maxSlippageBps, MAX_CROSS_CHAIN_SLIPPAGE_BPS),
     maxSlippageBps: guardrails.maxSlippageBps,
     maxChainExposurePercent: guardrails.maxChainExposurePercent,
-    minAmountAtomic: MIN_MOVE_ATOMIC,
+    minAmountAtomic: minMoveAtomic(input.decimals),
   });
 }
 
@@ -128,7 +130,7 @@ export async function previewMove(input: {
   walletAddress: `0x${string}`;
   guardrails: Guardrails;
 }): Promise<DryMovePreview> {
-  const client = getOneClickClient();
+  const client = getClient();
   const balances = await loadMoveBalances(input.walletAddress);
   const tokens = await client.getTokens();
 
@@ -176,6 +178,7 @@ export async function previewMove(input: {
     balances,
     guardrails: input.guardrails,
     expectedOutputAtomic,
+    decimals: originToken.decimals,
   });
 
   const amountIn = BigInt(quote.quote.amountIn);
@@ -226,6 +229,8 @@ export async function prepareMove(input: {
   walletAddress: `0x${string}`;
   guardrails: Guardrails;
   explicitApproval: boolean;
+  /** Origin token decimals from the 1Click catalogue, used for the minimum move threshold. */
+  decimals: number;
   dataMode?: string;
   now?: Date;
 }): Promise<PreparedMoveResult> {
@@ -275,6 +280,7 @@ export async function prepareMove(input: {
     balances,
     guardrails: input.guardrails,
     expectedOutputAtomic: BigInt(prepared.quote.quote.amountOut),
+    decimals: input.decimals,
   });
 
   if (!committedEvaluation.ok) {

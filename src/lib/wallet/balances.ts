@@ -1,5 +1,6 @@
-import { createPublicClient, erc20Abi, http, isAddress, type Address } from "viem";
-import { SUPPORTED_CHAINS, toViemChain, type SupportedChain } from "@/lib/chains";
+import { erc20Abi, isAddress, type Address } from "viem";
+import { getPublicClient } from "@/lib/chain/rpc";
+import { SUPPORTED_CHAINS, type SupportedChain } from "@/lib/chains";
 import { formatAtomic } from "@/lib/finance/amounts";
 /**
  * Direct chain reads for a connected wallet.
@@ -45,8 +46,6 @@ export type RawChainBalance = {
   observedAt: Date;
   error: string | null;
 };
-
-const RPC_TIMEOUT_MS = 8_000;
 
 export function parseAddress(value: string): Address | null {
   return isAddress(value, { strict: false }) ? (value as Address) : null;
@@ -109,10 +108,7 @@ export async function readWalletBalances(address: Address): Promise<WalletBalanc
 
   const results = await Promise.all(
     SUPPORTED_CHAINS.map(async (chain): Promise<RawChainBalance> => {
-      const client = createPublicClient({
-        chain: toViemChain(chain),
-        transport: http(chain.rpcUrl, { timeout: RPC_TIMEOUT_MS, retryCount: 1 }),
-      });
+      const client = getPublicClient(chain.id);
 
       try {
         const [blockNumber, nativeBalance, usdcBalance] = await Promise.all([

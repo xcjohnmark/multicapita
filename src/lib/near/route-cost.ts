@@ -1,4 +1,5 @@
-import { getOneClickClient, OneClickError } from "./oneclick";
+import { getClient } from "./registry";
+import { OneClickError } from "./oneclick";
 import { getChain } from "@/lib/chains";
 import { usdToCents } from "@/lib/finance/allocation";
 import type { RouteCostResult } from "@/lib/ai/tools";
@@ -28,7 +29,7 @@ export async function quoteCrossChainCost(input: {
   const amountAtomic = (usdToCents(input.amountUsd) * 10_000n).toString();
 
   try {
-    const client = getOneClickClient();
+    const client = getClient();
     const { tokens } = await client.getTokens();
 
     const findUsdc = (chain: typeof origin) =>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getChain } from "@/lib/chains";
 import { getPrisma } from "@/lib/db/client";
 import { loadGuardrails, moveBodySchema } from "@/lib/execution/api";
 import { parseMoveAmount, prepareMove, balancesToJson, evaluationToJson } from "@/lib/execution/move";
@@ -46,8 +47,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const amount = parseMoveAmount(parsed.data.amount);
-  const approved = parsed.data.approval ? parseMoveAmount(parsed.data.approval.amount) : null;
+  const decimals = getChain(parsed.data.fromChainId)?.usdc.decimals ?? 6;
+  const amount = parseMoveAmount(parsed.data.amount, decimals);
+  const approved = parsed.data.approval
+    ? parseMoveAmount(parsed.data.approval.amount, decimals)
+    : null;
   if (!amount || !approved) {
     return NextResponse.json(
       { error: { message: "Amount could not be converted exactly to atomic units." } },
@@ -76,6 +80,7 @@ export async function POST(request: Request) {
     walletAddress: parsed.data.walletAddress,
     guardrails,
     explicitApproval: true,
+    decimals,
     dataMode: env.APP_DATA_MODE,
   });
 
