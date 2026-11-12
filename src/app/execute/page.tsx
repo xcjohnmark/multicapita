@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ExecuteMove } from "@/components/execution/execute-move";
 import { Panel } from "@/components/ui/primitives";
 
@@ -26,7 +27,9 @@ export default function ExecutePage() {
         </p>
       </Panel>
 
-      <ExecuteMove />
+      <Suspense fallback={<div className="panel p-6 text-sm text-ink-muted">Loading execution console…</div>}>
+        <ExecuteMove />
+      </Suspense>
     </div>
   );
 }

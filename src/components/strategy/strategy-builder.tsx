@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { StatusDot } from "@/components/ui/primitives";
 import { formatPercent, formatUsd } from "@/lib/format";
@@ -251,6 +252,7 @@ function ResultPanel({ result }: { result: ProposeResponse }) {
                 <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Rate</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Weight</th>
                 <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Amount</th>
+                <th className="px-4 py-2 text-right text-xs font-medium text-ink-faint">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -271,6 +273,14 @@ function ResultPanel({ result }: { result: ProposeResponse }) {
                   </td>
                   <td className="px-4 py-3 text-right metric text-ink" data-numeric>
                     {formatUsd(leg.amountUsd)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={`/execute?direction=${leg.chainName.toLowerCase().includes("arb") ? "base-to-arb" : "arb-to-base"}&amount=${Math.round(leg.amountUsd)}`}
+                      className="btn btn-secondary px-2.5 py-1 text-xs"
+                    >
+                      Move funds →
+                    </Link>
                   </td>
                 </tr>
               ))}

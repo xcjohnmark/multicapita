@@ -137,6 +137,18 @@ async function main() {
     },
   });
 
+  const aerodrome = await prisma.protocol.create({
+    data: {
+      slug: "aerodrome",
+      name: "Aerodrome",
+      protocolType: "dex",
+      websiteUrl: "https://aerodrome.finance",
+      docsUrl: "https://aerodrome.finance/docs",
+      riskNotes: "Base DEX; non-atomic cross-chain arbitrage leg.",
+      isAllowlisted: true,
+    },
+  });
+
   const now = new Date();
 
   await prisma.opportunity.createMany({
@@ -204,6 +216,33 @@ async function main() {
         riskFlags: ["stablecoin_depeg", "concentrated_liquidity"],
         sourcePayload: { provider: "sample fixture", note: "not live market data" },
         feesJson: { feeTier: 100 },
+      },
+      {
+        strategyType: "arbitrage",
+        protocolId: aerodrome.id,
+        chainId: 8453,
+        tokenOrPairRef: "WETH Base (Aerodrome) → Arbitrum (Uniswap)",
+        marketOrPoolAddress: BASE_WETH,
+        estimatedApy: null,
+        rateType: "estimated_net_trade_profit",
+        tvlUsd: 14_500_000,
+        liquidityUsd: 2_100_000,
+        dataMode: "sample",
+        observedAt: now,
+        status: "active",
+        riskFlags: ["cross_chain_delay", "execution_price_slippage", "non_atomic"],
+        sourcePayload: {
+          provider: "sample fixture",
+          buyVenue: "Aerodrome (Base)",
+          sellVenue: "Uniswap V3 (Arbitrum)",
+          expectedProfitUsd: 12.4,
+          grossSpreadBps: 85,
+          netSpreadBps: 42,
+          gasEstimateUsd: 1.8,
+          bridgeEstimateUsd: 0.25,
+          tradeSizeUsd: 2500,
+          note: "Trade-size specific executable quote required before signing",
+        },
       },
     ],
   });

@@ -181,6 +181,15 @@ export default async function OverviewPage() {
                 />
               </dl>
 
+              <div className="pt-2">
+                <Link
+                  href="/execute?direction=base-to-arb&amount=100"
+                  className="btn btn-secondary w-full justify-center text-xs"
+                >
+                  Execute route in Console →
+                </Link>
+              </div>
+
               <p className="text-[11px] leading-relaxed text-ink-faint">{preview.note}</p>
             </div>
           ) : (

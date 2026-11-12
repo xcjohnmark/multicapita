@@ -33,6 +33,7 @@ export type OpportunityRow = {
   status: string;
   expiresAt: Date | null;
   riskFlags: unknown;
+  sourcePayload?: unknown;
   protocol: { slug: string; name: string };
 };
 
@@ -52,6 +53,10 @@ export function toOpportunityView(
     ? row.riskFlags.filter((flag): flag is string => typeof flag === "string")
     : [];
 
+  const payload = row.sourcePayload as { expectedProfitUsd?: number } | null | undefined;
+  const expectedProfit =
+    typeof payload?.expectedProfitUsd === "number" ? payload.expectedProfitUsd : null;
+
   return {
     id: row.id,
     strategyType: row.strategyType as StrategyType,
@@ -68,7 +73,7 @@ export function toOpportunityView(
     expiresAt: row.expiresAt,
     liquidityUsd: row.liquidityUsd,
     // Arbitrage profitability must come from an executable quote, never from a displayed spread.
-    expectedProfitUsd: null,
+    expectedProfitUsd: expectedProfit,
     riskFlags: flags,
   };
 }

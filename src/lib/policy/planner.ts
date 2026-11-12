@@ -36,7 +36,10 @@ const CAP_SAFETY_BPS = 9_990n;
 const RISK_PENALTY_PERCENT = 0.35;
 
 function score(opportunity: OpportunityView): number {
-  const rate = opportunity.expectedRatePercent ?? 0;
+  const rate =
+    opportunity.strategyType === "arbitrage"
+      ? (opportunity.expectedProfitUsd ?? 0)
+      : (opportunity.expectedRatePercent ?? 0);
   const flags = opportunity.riskFlags?.length ?? 0;
   return rate - flags * RISK_PENALTY_PERCENT;
 }

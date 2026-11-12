@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { Panel, PanelHeader, StatusDot } from "@/components/ui/primitives";
 import { getPrisma } from "@/lib/db/client";
-import { formatDateTime, formatPercent, formatUsd } from "@/lib/format";
+import { formatDateTime, formatPercent, formatUsd, formatUsdDelta } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -73,35 +74,56 @@ export default async function OpportunitiesPage() {
                     <th className="px-5 py-2.5 text-right text-xs font-medium text-ink-faint">
                       Observed
                     </th>
+                    <th className="px-5 py-2.5 text-right text-xs font-medium text-ink-faint">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-surface-raised/40">
-                      <td className="px-5 py-3">
-                        <p className="text-ink">{row.tokenOrPairRef}</p>
-                        <p className="font-mono text-[11px] text-ink-faint">
-                          {row.marketOrPoolAddress ?? "address pending verification"}
-                        </p>
-                      </td>
-                      <td className="px-5 py-3 text-ink-muted">{row.protocol.name}</td>
-                      <td className="px-5 py-3 text-ink-muted">
-                        {row.chainId === 8453 ? "Base" : row.chainId === 42161 ? "Arbitrum" : row.chainId}
-                      </td>
-                      <td className="px-5 py-3 text-right metric" data-numeric>
-                        <span className="text-ink">{formatPercent(row.estimatedApy)}</span>
-                        <span className="ml-1 text-[10px] uppercase text-ink-faint">
-                          {row.rateType ?? ""}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right metric text-ink-muted" data-numeric>
-                        {formatUsd(row.liquidityUsd ?? row.tvlUsd, { whole: true })}
-                      </td>
-                      <td className="px-5 py-3 text-right text-xs text-ink-faint">
-                        {formatDateTime(row.observedAt)}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((row) => {
+                    const payload = row.sourcePayload as { expectedProfitUsd?: number } | null | undefined;
+                    const isArb = row.strategyType === "arbitrage";
+                    const hasProfit = typeof payload?.expectedProfitUsd === "number";
+
+                    return (
+                      <tr key={row.id} className="hover:bg-surface-raised/40">
+                        <td className="px-5 py-3">
+                          <p className="text-ink">{row.tokenOrPairRef}</p>
+                          <p className="font-mono text-[11px] text-ink-faint">
+                            {row.marketOrPoolAddress ?? "address pending verification"}
+                          </p>
+                        </td>
+                        <td className="px-5 py-3 text-ink-muted">{row.protocol.name}</td>
+                        <td className="px-5 py-3 text-ink-muted">
+                          {row.chainId === 8453 ? "Base" : row.chainId === 42161 ? "Arbitrum" : row.chainId}
+                        </td>
+                        <td className="px-5 py-3 text-right metric" data-numeric>
+                          <span className="text-ink">
+                            {isArb && hasProfit
+                              ? formatUsdDelta(payload?.expectedProfitUsd)
+                              : formatPercent(row.estimatedApy)}
+                          </span>
+                          <span className="ml-1 text-[10px] uppercase text-ink-faint">
+                            {isArb ? "net est." : (row.rateType ?? "")}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right metric text-ink-muted" data-numeric>
+                          {formatUsd(row.liquidityUsd ?? row.tvlUsd, { whole: true })}
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs text-ink-faint">
+                          {formatDateTime(row.observedAt)}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <Link
+                            href={`/execute?direction=${row.chainId === 42161 ? "base-to-arb" : "arb-to-base"}&amount=100`}
+                            className="btn btn-secondary px-2.5 py-1 text-xs"
+                          >
+                            Move funds →
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

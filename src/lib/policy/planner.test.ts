@@ -204,4 +204,33 @@ describe("planDeterministicAllocation", () => {
 
     expect(evaluation.totals.allocatedUsd).toBeLessThanOrEqual(500);
   });
+
+  it("plans an arbitrage opportunity when executable net profit is established", () => {
+    const arbOpportunity = opportunity({
+      id: "arb-1",
+      strategyType: "arbitrage",
+      protocolSlug: "aerodrome",
+      protocolName: "Aerodrome",
+      assetLabel: "WETH Base → Arb",
+      expectedRatePercent: null,
+      expectedProfitUsd: 12.4,
+      liquidityUsd: 2_000_000,
+      riskFlags: ["non_atomic"],
+    });
+
+    const result = plan([arbOpportunity], {
+      guardrails: {
+        ...guardrails,
+        minArbitrageProfitUsd: 5,
+        maxProtocolExposurePercent: 100,
+        maxChainExposurePercent: 100,
+        maxStrategyExposurePercent: 100,
+        maxAssetExposurePercent: 100,
+      },
+    });
+
+    expect(result.proposal.legs).toHaveLength(1);
+    expect(result.proposal.legs[0].opportunityId).toBe("arb-1");
+    expect(result.proposal.riskNotes.join(" ")).toContain("Arbitrage legs settle separately and are not atomic");
+  });
 });

@@ -175,9 +175,13 @@ observed**. Three data modes are never mixed silently:
 
 | Mode | Meaning | How the UI shows it |
 | --- | --- | --- |
-| `sample` | Local fixtures, no wallet, no chain read | Yellow **Demo mode** banner + `dataMode` chip |
-| `dry_run` | Live reads and live 1Click dry quotes; no funds can move | Quote card shows "dry run", timestamp, `correlationId` |
+| `sample` | Portfolio and opportunity figures are local fixtures. Read-only chain calls (balances, dry quotes) still work and are labelled live. Nothing can be signed. | Yellow **Demo mode** banner + `dataMode` chip; live cards say "live" |
+| `dry_run` | Same reads, intended for exercising the flow end to end without funds | Preview panels say "Dry run", with quote and block provenance |
 | `live` | Wallet-signed execution against mainnet | Status timeline with terminal state and audit event |
+
+Read-only chain reads are allowed in every mode because they cannot move funds and cost nothing;
+only **execution** is gated to `live`. `APP_DATA_MODE` therefore controls what may be signed, not
+what may be read.
 
 **1Click has no testnet.** Development is `dry: true` only. A real swap is a tiny mainnet amount
 with explicit human approval, recorded in the audit log.

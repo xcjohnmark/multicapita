@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatAtomic } from "@/lib/finance/amounts";
 import "@/lib/wallet/provider";
@@ -95,8 +96,18 @@ type StatusResponse = {
 const USDC = 6;
 
 export function ExecuteMove() {
-  const [direction, setDirection] = useState<Direction>("base-to-arb");
-  const [amount, setAmount] = useState("100");
+  const searchParams = useSearchParams();
+  const paramDirection = searchParams.get("direction");
+  const paramAmount = searchParams.get("amount");
+
+  const [direction, setDirection] = useState<Direction>(
+    paramDirection === "arb-to-base" ? "arb-to-base" : "base-to-arb",
+  );
+  const [amount, setAmount] = useState(
+    paramAmount && !Number.isNaN(Number(paramAmount)) && Number(paramAmount) > 0
+      ? paramAmount
+      : "100",
+  );
   const [walletAddress, setWalletAddress] = useState("");
   const [approved, setApproved] = useState(false);
   const [pending, setPending] = useState<"preview" | "prepare" | null>(null);
@@ -106,6 +117,15 @@ export function ExecuteMove() {
   const [txHash, setTxHash] = useState("");
   const [depositSubmitted, setDepositSubmitted] = useState(false);
   const [status, setStatus] = useState<StatusResponse | null>(null);
+
+  useEffect(() => {
+    if (paramDirection === "base-to-arb" || paramDirection === "arb-to-base") {
+      setDirection(paramDirection);
+    }
+    if (paramAmount && !Number.isNaN(Number(paramAmount)) && Number(paramAmount) > 0) {
+      setAmount(paramAmount);
+    }
+  }, [paramDirection, paramAmount]);
 
   const fromChainId = direction === "base-to-arb" ? 8453 : 42161;
   const toChainId = direction === "base-to-arb" ? 42161 : 8453;
