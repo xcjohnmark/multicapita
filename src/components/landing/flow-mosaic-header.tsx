@@ -160,46 +160,37 @@ function TileFace({
 
   return (
     <div
-      className={`absolute inset-0 flex flex-col justify-between p-3 sm:p-3.5 bg-canvas transition-colors duration-200 ${className}`}
+      className={`absolute inset-0 flex flex-col justify-between p-3.5 bg-canvas transition-colors duration-200 ${className}`}
     >
-      <div className="flex items-center justify-between gap-1">
+      {/* Top: Icon + Chain Tag */}
+      <div className="flex items-center justify-between gap-1.5">
         {item.iconSymbol ? (
-          <AssetIcon symbolOrName={item.iconSymbol} size="lg" className="rounded-lg shadow-xs" />
+          <AssetIcon symbolOrName={item.iconSymbol} size="md" className="rounded-full shadow-xs" />
         ) : (
           <div
-            className="size-7 sm:size-8 rounded-lg flex items-center justify-center font-bold text-xs shadow-xs"
+            className="size-6 rounded-full flex items-center justify-center font-bold text-[10px] shadow-xs"
             style={{ backgroundColor: item.iconBg ?? "#F3F4F6", color: item.iconText ?? "#111827" }}
           >
             {item.title.slice(0, 2).toUpperCase()}
           </div>
         )}
-        {item.badge ? (
-          <span
-            className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border border-line/60 bg-surface text-ink-muted tracking-tight"
-          >
-            {item.badge}
-          </span>
-        ) : null}
+        <span className="text-[10px] font-mono text-ink-muted uppercase tracking-wider">
+          {item.chainOrCategory}
+        </span>
       </div>
 
+      {/* Middle & Bottom: Clean Title, Subtitle, and Metric */}
       <div className="mt-auto">
-        <div className="flex items-baseline justify-between gap-1">
-          <p className="text-xs sm:text-sm font-semibold tracking-tight text-ink truncate">
-            {item.title}
-          </p>
-          <span className="text-[10px] text-ink-muted uppercase tracking-wider font-mono">
-            {item.chainOrCategory}
-          </span>
-        </div>
-        <p className="text-[11px] text-ink-muted truncate">{item.subtitle}</p>
+        <p className="text-sm font-semibold tracking-tight text-ink leading-tight">
+          {item.title}
+        </p>
+        <p className="text-[11px] text-ink-muted leading-tight mt-0.5">{item.subtitle}</p>
 
-        <div className="mt-2 pt-1.5 border-t border-line/60 flex items-center justify-between">
+        <div className="mt-2.5 pt-1.5 border-t border-line/60 flex items-center justify-between">
           <span className="text-[9px] uppercase font-medium text-ink-faint tracking-wider">
             {item.statLabel}
           </span>
-          <span
-            className={`font-mono text-[11px] font-semibold px-1 rounded-sm ${statToneClass}`}
-          >
+          <span className={`font-mono text-xs font-semibold px-1 rounded-sm ${statToneClass}`}>
             {item.statValue}
           </span>
         </div>

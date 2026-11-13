@@ -2,7 +2,8 @@ export type OpportunityStrategyType =
   | "yield_vault"
   | "lending"
   | "stablecoin_lp"
-  | "arbitrage";
+  | "arbitrage"
+  | "tokenized_equity";
 
 export type OpportunityInput = {
   strategyType: OpportunityStrategyType;
@@ -16,7 +17,7 @@ export type OpportunityInput = {
   tokenOrPairRef: string;
   marketOrPoolAddress?: string;
   estimatedApy: number;
-  rateType: "APY" | "APR" | "estimated_net_trade_profit";
+  rateType: "APY" | "APR" | "estimated_net_trade_profit" | "reference_nav_exposure";
   tvlUsd?: number;
   volume24hUsd?: number;
   liquidityUsd?: number;

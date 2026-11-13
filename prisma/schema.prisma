@@ -65,6 +65,7 @@ model User {
   positions         Position[]
   auditEvents       AuditEvent[]
   idempotencyKeys   IdempotencyKey[]
+  copySubscriptions CopySubscription[]
 }
 
 model Wallet {
@@ -447,4 +448,63 @@ model AuditEvent {
 
   @@index([userId, createdAt])
   @@index([eventType])
+}
+
+// ---------------------------------------------------------------------------
+// Stage S7: Cross-chain wallet copytrading (spot blue-chips, vaults, lending, LP)
+// ---------------------------------------------------------------------------
+
+model TrackedTrader {
+  id                       String    @id @default(cuid())
+  address                  String
+  ecosystem                String // "evm" | "solana" | "near"
+  resolvedHandle           String?
+  label                    String?
+  primaryStyle             String    @default("Spot Blue-Chips")
+  indexerSources           Json?
+  realisedPnl90dUsd        Float?
+  winRatePercent           Float?
+  maxDrawdownPercent       Float?
+  isMemecoinFree           Boolean   @default(true)
+  hasExternalHedgeWarning  Boolean   @default(true)
+  positionsJson            Json?
+  aiSummary                String?
+  dataMode                 String    @default("live") // live | sample
+  lastIndexedAt            DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  subscriptions CopySubscription[]
+
+  @@unique([ecosystem, address])
+  @@index([isMemecoinFree, lastIndexedAt])
+}
+
+model CopySubscription {
+  id                   String   @id @default(cuid())
+  userId               String
+  trackedTraderId      String
+  fundingNearAccountId String
+  executionMode        String   @default("approval_required") // approval_required | agent_auto_copy
+  agentGrantReference  String?
+  maxUsdPerTrade       Float    @default(50)
+  maxDailyBudgetUsd    Float    @default(200)
+  dailyUsedUsd         Float    @default(0)
+  dailyUsageDate       String?
+  copyScaleBps         Int      @default(1000) // e.g. 1000 = 10%
+  maxPriceDriftBps     Int      @default(150) // e.g. 150 = 1.50%
+  copySpot1Click       Boolean  @default(true)
+  copyVaults           Boolean  @default(true)
+  copyLending          Boolean  @default(true)
+  copyLp               Boolean  @default(false)
+  noMemecoinsOnly      Boolean  @default(true)
+  status               String   @default("active") // active | paused | frozen
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackedTrader TrackedTrader @relation(fields: [trackedTraderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackedTraderId])
+  @@index([userId, status])
 }

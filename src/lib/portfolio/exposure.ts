@@ -42,6 +42,8 @@ const STRATEGY_TYPES: readonly StrategyType[] = [
   "lending",
   "stablecoin_lp",
   "arbitrage",
+  "tokenized_equity",
+  "copytrading",
 ];
 
 export function toOpportunityView(

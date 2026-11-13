@@ -1,6 +1,7 @@
 import { getPrisma } from "@/lib/db/client";
 import { ingestAaveOpportunities } from "./aave";
 import { ingestArbitrageOpportunities } from "./arbitrage";
+import { ingestEquityOpportunities } from "./equities";
 import { ingestPoolOpportunities } from "./pools";
 import type { OpportunityInput, SyncResult } from "./types";
 import { ingestVaultOpportunities } from "./vaults";
@@ -60,20 +61,49 @@ const PROTOCOL_DEFAULTS = [
     riskNotes: "Overcollateralized lending and vault protocol on Base.",
     isAllowlisted: true,
   },
+  {
+    slug: "ondo",
+    name: "Ondo Finance",
+    protocolType: "aggregator",
+    websiteUrl: "https://ondo.finance",
+    docsUrl: "https://docs.ondo.finance",
+    riskNotes: "Custody-backed total-return tokenized equity/ETF entitlements; non-voting.",
+    isAllowlisted: true,
+  },
+  {
+    slug: "dinari",
+    name: "Dinari dShares",
+    protocolType: "aggregator",
+    websiteUrl: "https://dinari.com",
+    docsUrl: "https://docs.dinari.com",
+    riskNotes: "1:1 custody-backed tokenized equity shares on Arbitrum One.",
+    isAllowlisted: true,
+  },
+  {
+    slug: "tether",
+    name: "Tether Gold (XAUT)",
+    protocolType: "aggregator",
+    websiteUrl: "https://gold.tether.to",
+    docsUrl: "https://gold.tether.to",
+    riskNotes: "Physical gold-backed RWA token settled via NEAR Intents 1Click on Ethereum.",
+    isAllowlisted: true,
+  },
 ];
 
 /**
- * Sync and ingest live opportunities across all 4 core strategies:
- *  1. 1Click Earn Live Vaults (Gauntlet Morpho, Spark, Moonwell)
- *  2. Aave V3 Lending Markets (on-chain Ray -> APY conversion on Base & Arbitrum)
- *  3. Stablecoin Liquidity Pools (Uniswap V3 & Aerodrome)
- *  4. Cross-Chain Arbitrage (deterministic net profit with 1Click bridge fees)
+ * Sync opportunities across all live streams:
+ *  1. 1Click Earn Live Vaults
+ *  2. Aave V3 Lending Markets
+ *  3. Stablecoin Liquidity Pools (live DEX Screener pairs)
+ *  4. Cross-Chain Arbitrage (live DEX Screener + 1Click route quotes)
+ *  5. Tokenized Equities & RWAs (Yahoo Finance NAV + DEX Screener)
+ *
+ * Truthfully preserves `c.dataMode` ("live" vs "sample") rather than masking fallbacks as live.
  */
 export async function syncOpportunities(): Promise<SyncResult> {
   const prisma = getPrisma();
 
-  // 1. Ensure all protocols exist in DB
-  const protocolMap = new Map<string, string>(); // slug -> id
+  const protocolMap = new Map<string, string>();
   for (const p of PROTOCOL_DEFAULTS) {
     const record = await prisma.protocol.upsert({
       where: { slug: p.slug },
@@ -91,12 +121,12 @@ export async function syncOpportunities(): Promise<SyncResult> {
     protocolMap.set(record.slug, record.id);
   }
 
-  // 2. Fetch all 4 opportunity streams concurrently
-  const [aaveRes, vaultRes, poolRes, arbRes] = await Promise.allSettled([
+  const [aaveRes, vaultRes, poolRes, arbRes, eqRes] = await Promise.allSettled([
     ingestAaveOpportunities(),
     ingestVaultOpportunities(),
     ingestPoolOpportunities(),
     ingestArbitrageOpportunities(),
+    ingestEquityOpportunities(),
   ]);
 
   const candidates: OpportunityInput[] = [];
@@ -104,25 +134,15 @@ export async function syncOpportunities(): Promise<SyncResult> {
   if (vaultRes.status === "fulfilled") candidates.push(...vaultRes.value);
   if (poolRes.status === "fulfilled") candidates.push(...poolRes.value);
   if (arbRes.status === "fulfilled") candidates.push(...arbRes.value);
+  if (eqRes.status === "fulfilled") candidates.push(...eqRes.value);
 
-  // 3. Upsert opportunities into DB with dataMode: "live"
   const now = new Date();
-  const savedOpportunities: Array<{
-    id: string;
-    strategyType: string;
-    protocol: string;
-    chainId: number;
-    tokenOrPairRef: string;
-    estimatedApy: number | null;
-    rateType: string | null;
-    dataMode: string;
-  }> = [];
+  const savedOpportunities: SyncResult["opportunities"] = [];
 
   for (const c of candidates) {
     const protocolId = protocolMap.get(c.protocolSlug);
     if (!protocolId) continue;
 
-    // Search for existing opportunity matching strategy, protocol, chain, and pair
     const existing = await prisma.opportunity.findFirst({
       where: {
         strategyType: c.strategyType,
@@ -148,36 +168,31 @@ export async function syncOpportunities(): Promise<SyncResult> {
       withdrawalJson: c.withdrawalJson ? JSON.parse(JSON.stringify(c.withdrawalJson)) : null,
       riskFlags: c.riskFlags,
       sourcePayload: JSON.parse(JSON.stringify(c.sourcePayload)),
-      dataMode: "live",
-      observedAt: now,
+      dataMode: c.dataMode,
+      observedAt: c.observedAt ?? now,
       status: c.status,
     };
 
-    let oppId: string;
-    if (existing) {
-      const updated = await prisma.opportunity.update({
-        where: { id: existing.id },
-        data: dataPayload,
-        select: { id: true },
-      });
-      oppId = updated.id;
-    } else {
-      const created = await prisma.opportunity.create({
-        data: dataPayload,
-        select: { id: true },
-      });
-      oppId = created.id;
-    }
+    const record = existing
+      ? await prisma.opportunity.update({
+          where: { id: existing.id },
+          data: dataPayload,
+          select: { id: true },
+        })
+      : await prisma.opportunity.create({
+          data: dataPayload,
+          select: { id: true },
+        });
 
     savedOpportunities.push({
-      id: oppId,
+      id: record.id,
       strategyType: c.strategyType,
       protocol: c.protocolName,
       chainId: c.chainId,
       tokenOrPairRef: c.tokenOrPairRef,
       estimatedApy: c.estimatedApy,
       rateType: c.rateType,
-      dataMode: "live",
+      dataMode: c.dataMode,
     });
   }
 

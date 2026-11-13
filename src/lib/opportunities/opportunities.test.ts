@@ -96,4 +96,11 @@ describe("1Click Earn & Morpho Vault Ingestion", () => {
     expect(opp.dataMode).toBe("live");
     expect(opp.riskFlags).toContain("share_price_changes");
   });
+
+  it("honestly labels vault fallback as dataMode=sample when DefiLlama pool is unavailable", () => {
+    const vault = TRACKED_VAULTS[0];
+    const opp = buildVaultOpportunity(vault, null);
+    expect(opp.dataMode).toBe("sample");
+    expect(opp.riskFlags).toContain("fallback_rate_unverified");
+  });
 });

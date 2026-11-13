@@ -38,6 +38,15 @@ const envSchema = z.object({
   /** Hard per-transaction and per-UTC-day notional caps, in whole USDC. */
   EXECUTION_MAX_MOVE_USDC: z.coerce.number().positive().default(50),
   EXECUTION_MAX_DAILY_USDC: z.coerce.number().positive().default(100),
+
+  /** Optional Stage S7 copytrading indexers (falls back to direct multi-chain RPC when absent). */
+  ZERION_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  DEBANK_ACCESS_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  DUNE_SIM_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+
+  /** Optional NEAR Intents Agent API for owner-signed automated copytrading (Mode B). */
+  NEAR_INTENTS_AGENT_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  NEAR_INTENTS_AGENT_API_URL: z.string().url().default("https://api.agentsonintents.com"),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

@@ -1,12 +1,82 @@
-import { encodeFunctionData, isAddress, parseAbi, type Address } from "viem";
+import { encodeFunctionData, erc20Abi, isAddress, parseAbi, type Address } from "viem";
+import { getPublicClient } from "@/lib/chain/rpc";
 
 /**
  * Uniswap V3 Concentrated Liquidity LP Protocol Adapter.
  *
  * Supported chains:
- *  - Base (8453)
- *  - Arbitrum One (42161)
+ *  - Base (8453): USDC (`0x8335...`) / EURC (`0x60a3...`)
+ *  - Arbitrum One (42161): USDC (`0xaf88...`) / USDT0 (`0xfd08...`)
  */
+
+export const UNISWAP_V3_PAIRS: Record<
+  number,
+  {
+    pairLabel: string;
+    token0: Address;
+    token0Symbol: string;
+    token1: Address;
+    token1Symbol: string;
+    feeTier: number;
+  }
+> = {
+  8453: {
+    pairLabel: "USDC / EURC 0.01%",
+    token0: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    token0Symbol: "USDC",
+    token1: "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42",
+    token1Symbol: "EURC",
+    feeTier: 100,
+  },
+  42161: {
+    pairLabel: "USDC / USDT0 0.01%",
+    token0: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+    token0Symbol: "USDC",
+    token1: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+    token1Symbol: "USDT0",
+    feeTier: 100,
+  },
+};
+
+export async function getUniswapAllowance(input: {
+  chainId: number;
+  tokenAddress: Address;
+  ownerAddress: Address;
+}): Promise<bigint> {
+  const config = UNISWAP_V3_CONFIG[input.chainId];
+  if (!config) throw new Error(`Unsupported Uniswap chain ${input.chainId}`);
+  const client = getPublicClient(input.chainId);
+  return client.readContract({
+    address: input.tokenAddress,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [input.ownerAddress, config.positionManager],
+  });
+}
+
+export function prepareUniswapApprove(input: {
+  chainId: number;
+  tokenAddress: Address;
+  amountAtomic: bigint;
+  symbol?: string;
+}): UniswapInstruction {
+  const config = UNISWAP_V3_CONFIG[input.chainId];
+  if (!config) throw new Error(`Unsupported Uniswap chain ${input.chainId}`);
+  const data = encodeFunctionData({
+    abi: erc20Abi,
+    functionName: "approve",
+    args: [config.positionManager, input.amountAtomic],
+  });
+  return {
+    chainId: input.chainId,
+    to: input.tokenAddress,
+    data,
+    value: 0n,
+    operation: "approve_lp_token" as UniswapInstruction["operation"],
+    description: `Approve ${config.name} PositionManager to spend ${input.symbol ?? "token"}`,
+    explorerUrl: config.explorerUrl,
+  };
+}
 
 export const UNISWAP_V3_CONFIG: Record<
   number,
@@ -42,7 +112,7 @@ export type UniswapInstruction = {
   to: Address;
   data: `0x${string}`;
   value: bigint;
-  operation: "mint_lp" | "decrease_liquidity" | "collect_fees";
+  operation: "approve_lp_token" | "mint_lp" | "decrease_liquidity" | "collect_fees";
   description: string;
   explorerUrl: string;
 };

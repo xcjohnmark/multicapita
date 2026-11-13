@@ -45,7 +45,13 @@ export default function ExecutePage() {
           <h2 className="text-base font-semibold text-ink">Step 2: Destination Protocol Deployment & Withdrawal</h2>
           <p className="text-xs text-ink-muted">Deposit settled capital into Aave V3 lending pools, Uniswap concentrated LPs, or tokenized equities with live NAV spread checks.</p>
         </div>
-        <ProtocolDeploy />
+        <Suspense
+          fallback={
+            <div className="panel p-6 text-sm text-ink-muted">Loading protocol console…</div>
+          }
+        >
+          <ProtocolDeploy />
+        </Suspense>
       </section>
     </div>
   );

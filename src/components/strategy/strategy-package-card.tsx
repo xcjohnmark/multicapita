@@ -5,8 +5,10 @@ import { useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
+  CheckCircle2,
   ChevronDown,
   Layers,
+  Loader2,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -173,6 +175,38 @@ export function StrategyPackageCard({
   customizeOpen: boolean;
 }) {
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const [stagedLinks, setStagedLinks] = useState<Array<{
+    allocationId: string;
+    step: number;
+    label: string;
+    chainId: number;
+    amountUsd: number;
+    href: string;
+  }> | null>(null);
+
+  async function approveStrategy() {
+    setApproving(true);
+    setApproveError(null);
+    try {
+      const res = await fetch("/api/strategy/approve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ proposalId: result.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setApproveError(json.error?.message ?? "Could not approve strategy.");
+        return;
+      }
+      setStagedLinks(json.data?.stageLinks ?? []);
+    } catch {
+      setApproveError("Network error approving strategy.");
+    } finally {
+      setApproving(false);
+    }
+  }
 
   const { evaluation, proposal } = result;
   const violations = [...evaluation.violations].sort(
@@ -373,16 +407,71 @@ export function StrategyPackageCard({
         </div>
 
         {evaluation.ok && evaluation.legs.length > 0 ? (
-          <Link href={executeHref} className="btn btn-accent h-9 px-4 text-xs">
-            <span>Review in Execution Console</span>
-            <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={approveStrategy}
+              disabled={approving || Boolean(stagedLinks)}
+              className={`btn h-9 px-4 text-xs ${stagedLinks ? "btn-secondary text-accent-text" : "btn-primary"}`}
+            >
+              {approving ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={1.5} aria-hidden />
+              ) : (
+                <CheckCircle2 className="size-3.5" strokeWidth={1.5} aria-hidden />
+              )}
+              <span>
+                {stagedLinks
+                  ? "Approved & Staged"
+                  : approving
+                    ? "Approving…"
+                    : "Approve & Stage Strategy"}
+              </span>
+            </button>
+            <Link href={executeHref} className="btn btn-accent h-9 px-4 text-xs">
+              <span>Review in Execution Console</span>
+              <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
+            </Link>
+          </div>
         ) : (
           <button type="button" disabled className="btn btn-secondary h-9 px-4 text-xs">
             <span>Blocked by policy engine</span>
           </button>
         )}
       </div>
+
+      {approveError ? (
+        <div className="border-t border-line bg-red-50/70 px-5 py-2.5 text-xs text-danger-text">
+          {approveError}
+        </div>
+      ) : null}
+
+      {stagedLinks && stagedLinks.length > 0 ? (
+        <div className="border-t border-line bg-green-50/40 px-5 py-4 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-accent-text flex items-center gap-1.5">
+              <CheckCircle2 className="size-3.5" />
+              Strategy approved — execute each non-atomic leg in sequence:
+            </p>
+            <span className="text-[11px] text-ink-muted">No claimed cross-chain atomicity</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {stagedLinks.map((leg) => (
+              <Link
+                key={leg.allocationId}
+                href={leg.href}
+                className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-2 text-xs hover:border-line-strong"
+              >
+                <span className="truncate font-medium text-ink">
+                  Step {leg.step}: {leg.label} ({formatUsd(leg.amountUsd)})
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-1 text-accent-text font-medium">
+                  Stage <ArrowRight className="size-3" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Deep Dive Breakdown */}
       {deepDiveOpen ? (

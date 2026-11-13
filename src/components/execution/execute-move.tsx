@@ -96,6 +96,8 @@ export function ExecuteMove() {
   const searchParams = useSearchParams();
   const paramDirection = searchParams.get("direction");
   const paramAmount = searchParams.get("amount");
+  const copySymbol = searchParams.get("copySymbol");
+  const copyChain = searchParams.get("copyChain");
 
   const [direction, setDirection] = useState<Direction>(
     paramDirection === "arb-to-base" ? "arb-to-base" : "base-to-arb",
@@ -352,6 +354,14 @@ export function ExecuteMove() {
           </div>
 
           <div className="space-y-4 px-5 py-4">
+            {copySymbol ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/70 px-3.5 py-2.5 text-xs text-ink">
+                <span className="font-semibold text-blue-800">Copytrade Staged:</span> Mirroring{" "}
+                <strong className="font-mono">{copySymbol}</strong>
+                {copyChain ? ` (target chain ${copyChain})` : ""}. Review guardrail check below and
+                request a committed quote when ready.
+              </div>
+            ) : null}
             <div>
               <p className="eyebrow mb-2">Direction</p>
               <div className="grid grid-cols-2 gap-2">

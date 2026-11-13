@@ -12,14 +12,20 @@ import {
 } from "@/lib/protocols/aave";
 import {
   computeStablecoinTickRange,
+  getUniswapAllowance,
+  prepareUniswapApprove,
   prepareUniswapCollect,
   prepareUniswapMint,
   UNISWAP_V3_CONFIG,
+  UNISWAP_V3_PAIRS,
 } from "@/lib/protocols/uniswap";
 import {
   evaluateEquityPriceProvenance,
+  fetchLiveEquityDualQuote,
+  getEquityAllowance,
   getVerifiedEquityAsset,
   prepareEquityApprove,
+  prepareEquitySwap,
 } from "@/lib/protocols/equities";
 import type { Address } from "viem";
 
@@ -39,8 +45,8 @@ const prepareSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("uniswap_mint"),
     chainId: z.number().int(),
-    token0: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-    token1: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    token0: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+    token1: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
     feeTier: z.number().int().default(100),
     amount0DesiredAtomic: z.string().regex(/^\d+$/),
     amount1DesiredAtomic: z.string().regex(/^\d+$/),
@@ -54,12 +60,11 @@ const prepareSchema = z.discriminatedUnion("action", [
     action: z.literal("equity_swap"),
     chainId: z.number().int(),
     contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-    dexRouterAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    direction: z.enum(["buy", "sell"]).default("buy"),
     amountAtomic: z.string().regex(/^\d+$/),
-    dexPriceUsd: z.number().positive(),
-    referenceNavUsd: z.number().positive(),
-    maxNavDeviationBps: z.number().int().default(150),
+    maxNavDeviationBps: z.number().int().min(10).max(2000).default(150),
     allowOffHoursExecution: z.boolean().default(false),
+    slippageBps: z.number().int().min(10).max(500).default(100),
   }),
 ]);
 
@@ -125,7 +130,6 @@ export async function POST(request: Request) {
         ownerAddress: userAddress,
       });
 
-      // If allowance is insufficient, first step is approval
       if (currentAllowance < amount) {
         const approveInst = prepareAaveApprove({
           chainId: req.chainId,
@@ -140,12 +144,11 @@ export async function POST(request: Request) {
             stepName: "Approve Aave Pool",
             requiresApproval: true,
             instruction: serializeInstruction(approveInst),
-            note: "First transaction approves the Aave Pool contract to transfer your USDC. Once confirmed, proceed to Supply.",
+            note: "First transaction approves Aave V3 Pool to spend your USDC. Once confirmed, proceed to Supply.",
           },
         });
       }
 
-      // Allowance is sufficient, supply directly
       const supplyInst = prepareAaveSupply({
         chainId: req.chainId,
         assetAddress: config.usdcAddress,
@@ -160,7 +163,7 @@ export async function POST(request: Request) {
           stepName: "Supply to Aave V3",
           requiresApproval: false,
           instruction: serializeInstruction(supplyInst),
-          note: "Deposit USDC into Aave V3 on Base/Arbitrum to receive interest-bearing aTokens.",
+          note: "Deposit USDC into Aave V3 to receive yield-bearing aTokens.",
         },
       });
     } catch (err) {
@@ -192,6 +195,7 @@ export async function POST(request: Request) {
           step: 1,
           totalSteps: 1,
           stepName: "Withdraw from Aave V3",
+          requiresApproval: false,
           instruction: serializeInstruction(withdrawInst),
           note: "Burn aTokens to withdraw underlying USDC directly back to your connected wallet.",
         },
@@ -204,35 +208,92 @@ export async function POST(request: Request) {
     }
   }
 
-  // 3. Uniswap Mint LP
+  // 3. Uniswap Mint LP (checks token0 & token1 allowances before mint)
   if (req.action === "uniswap_mint") {
     const config = UNISWAP_V3_CONFIG[req.chainId];
-    if (!config) {
+    const defaultPair = UNISWAP_V3_PAIRS[req.chainId];
+    if (!config || !defaultPair) {
       return NextResponse.json({ error: { message: `Unsupported chain ${req.chainId} for Uniswap V3` } }, { status: 400 });
     }
 
-    const range = computeStablecoinTickRange(req.feeTier, 20);
-    const mintInst = prepareUniswapMint({
-      chainId: req.chainId,
-      token0: req.token0 as Address,
-      token1: req.token1 as Address,
-      feeTier: req.feeTier,
-      tickLower: range.tickLower,
-      tickUpper: range.tickUpper,
-      amount0DesiredAtomic: BigInt(req.amount0DesiredAtomic),
-      amount1DesiredAtomic: BigInt(req.amount1DesiredAtomic),
-      recipient: userAddress,
-    });
+    const token0 = (req.token0 ?? defaultPair.token0) as Address;
+    const token1 = (req.token1 ?? defaultPair.token1) as Address;
+    const amount0 = BigInt(req.amount0DesiredAtomic);
+    const amount1 = BigInt(req.amount1DesiredAtomic);
 
-    return NextResponse.json({
-      data: {
-        step: 1,
-        totalSteps: 1,
-        stepName: "Mint Uniswap V3 LP",
-        instruction: serializeInstruction(mintInst),
-        note: `Mint concentrated liquidity position in tight stable range [${range.tickLower}, ${range.tickUpper}].`,
-      },
-    });
+    try {
+      const [allow0, allow1] = await Promise.all([
+        getUniswapAllowance({ chainId: req.chainId, tokenAddress: token0, ownerAddress: userAddress }),
+        getUniswapAllowance({ chainId: req.chainId, tokenAddress: token1, ownerAddress: userAddress }),
+      ]);
+
+      if (allow0 < amount0) {
+        const app0 = prepareUniswapApprove({
+          chainId: req.chainId,
+          tokenAddress: token0,
+          amountAtomic: amount0,
+          symbol: defaultPair.token0Symbol,
+        });
+        return NextResponse.json({
+          data: {
+            step: 1,
+            totalSteps: 3,
+            stepName: `Approve ${defaultPair.token0Symbol} for Uniswap V3`,
+            requiresApproval: true,
+            instruction: serializeInstruction(app0),
+            note: `Approve NonfungiblePositionManager to use ${defaultPair.token0Symbol} before minting LP.`,
+          },
+        });
+      }
+
+      if (allow1 < amount1) {
+        const app1 = prepareUniswapApprove({
+          chainId: req.chainId,
+          tokenAddress: token1,
+          amountAtomic: amount1,
+          symbol: defaultPair.token1Symbol,
+        });
+        return NextResponse.json({
+          data: {
+            step: 2,
+            totalSteps: 3,
+            stepName: `Approve ${defaultPair.token1Symbol} for Uniswap V3`,
+            requiresApproval: true,
+            instruction: serializeInstruction(app1),
+            note: `Approve NonfungiblePositionManager to use ${defaultPair.token1Symbol} before minting LP.`,
+          },
+        });
+      }
+
+      const range = computeStablecoinTickRange(req.feeTier, 20);
+      const mintInst = prepareUniswapMint({
+        chainId: req.chainId,
+        token0,
+        token1,
+        feeTier: req.feeTier,
+        tickLower: range.tickLower,
+        tickUpper: range.tickUpper,
+        amount0DesiredAtomic: amount0,
+        amount1DesiredAtomic: amount1,
+        recipient: userAddress,
+      });
+
+      return NextResponse.json({
+        data: {
+          step: 3,
+          totalSteps: 3,
+          stepName: `Mint ${defaultPair.pairLabel} LP`,
+          requiresApproval: false,
+          instruction: serializeInstruction(mintInst),
+          note: `Mint concentrated liquidity in tight range [${range.tickLower}, ${range.tickUpper}].`,
+        },
+      });
+    } catch (err) {
+      return NextResponse.json(
+        { error: { message: (err as Error).message ?? "Failed to check Uniswap LP allowances" } },
+        { status: 500 },
+      );
+    }
   }
 
   // 4. Uniswap Collect Fees
@@ -253,13 +314,14 @@ export async function POST(request: Request) {
         step: 1,
         totalSteps: 1,
         stepName: "Collect Uniswap Fees",
+        requiresApproval: false,
         instruction: serializeInstruction(collectInst),
         note: `Collect accrued swap fees from NFT LP #${req.tokenId}.`,
       },
     });
   }
 
-  // 5. Tokenized Equity Swap
+  // 5. Tokenized Equity Swap (Live dual NAV + DEX check; Step 1 Approve -> Step 2 SwapRouter02)
   if (req.action === "equity_swap") {
     const asset = getVerifiedEquityAsset(req.chainId, req.contractAddress);
     if (!asset) {
@@ -269,11 +331,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const liveQuote = await fetchLiveEquityDualQuote(asset);
+    const isCommodity = asset.wrapperType === "physical_commodity";
     const evalResult = evaluateEquityPriceProvenance({
-      dexPriceUsd: req.dexPriceUsd,
-      referenceNavUsd: req.referenceNavUsd,
+      dexPriceUsd: liveQuote.dexPriceUsd,
+      referenceNavUsd: liveQuote.referenceNavUsd,
       maxNavDeviationBps: req.maxNavDeviationBps,
-      allowOffHoursExecution: req.allowOffHoursExecution,
+      allowOffHoursExecution: req.allowOffHoursExecution || isCommodity,
+      isCommodity,
     });
 
     if (!evalResult.allowed) {
@@ -282,36 +347,82 @@ export async function POST(request: Request) {
           error: {
             message: evalResult.refusalReason ?? "Price provenance check failed",
             provenance: evalResult.provenance,
+            sources: { nav: liveQuote.referenceSource, dex: liveQuote.dexSource },
           },
         },
         { status: 409 },
       );
     }
 
-    const usdcAddress = (
-      req.chainId === 8453
-        ? "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
-        : "0xaf88d065e77c8cc2239327c5edb3a432268e5831"
-    ) as Address;
+    const amountAtomic = BigInt(req.amountAtomic);
+    const spendToken = req.direction === "buy" ? asset.quoteUsdcAddress : asset.contractAddress;
+    const currentAllowance = await getEquityAllowance({
+      chainId: asset.chainId,
+      tokenAddress: spendToken,
+      ownerAddress: userAddress,
+      spenderAddress: asset.swapRouterAddress,
+    });
 
-    const approveInst = prepareEquityApprove({
-      chainId: req.chainId,
-      usdcAddress,
-      dexRouterAddress: req.dexRouterAddress as Address,
-      amountAtomic: BigInt(req.amountAtomic),
+    if (currentAllowance < amountAtomic) {
+      const approveInst = prepareEquityApprove({
+        chainId: asset.chainId,
+        usdcAddress: spendToken,
+        dexRouterAddress: asset.swapRouterAddress,
+        amountAtomic,
+        equityAsset: asset,
+        provenance: evalResult.provenance,
+      });
+
+      return NextResponse.json({
+        data: {
+          step: 1,
+          totalSteps: 2,
+          stepName: `Approve ${req.direction === "buy" ? "USDC" : asset.symbol} for ${asset.symbol}`,
+          requiresApproval: true,
+          instruction: serializeInstruction(approveInst),
+          provenance: evalResult.provenance,
+          asset,
+          sources: { nav: liveQuote.referenceSource, dex: liveQuote.dexSource },
+          note: `Live dual check passed: ${liveQuote.referenceSource} NAV $${evalResult.provenance.referenceNavUsd.toFixed(2)}, ${liveQuote.dexSource} $${evalResult.provenance.dexExecutionPriceUsd.toFixed(2)} (Spread: ${evalResult.provenance.navDeviationBps} bps, Session: ${evalResult.provenance.sessionStatus}).`,
+        },
+      });
+    }
+
+    // Compute exact integer minOutputAtomic cleanly using integer arithmetic
+    const dexPriceScaled = BigInt(Math.round(evalResult.provenance.dexExecutionPriceUsd * 10_000));
+    const slippageMult = BigInt(10_000 - req.slippageBps);
+    let minOutputAtomic = 1n;
+    if (req.direction === "buy") {
+      // input is USDC (6 dec); output is equity (asset.decimals)
+      const scale = 10n ** BigInt(asset.decimals);
+      const rawOut = (amountAtomic * scale * 10_000n) / (dexPriceScaled * 1_000_000n);
+      minOutputAtomic = (rawOut * slippageMult) / 10_000n || 1n;
+    } else {
+      const scale = 10n ** BigInt(asset.decimals);
+      const rawOut = (amountAtomic * dexPriceScaled * 1_000_000n) / (scale * 10_000n);
+      minOutputAtomic = (rawOut * slippageMult) / 10_000n || 1n;
+    }
+
+    const swapInst = prepareEquitySwap({
+      direction: req.direction,
+      amountAtomic,
+      minOutputAtomic,
+      recipient: userAddress,
       equityAsset: asset,
       provenance: evalResult.provenance,
     });
 
     return NextResponse.json({
       data: {
-        step: 1,
+        step: 2,
         totalSteps: 2,
-        stepName: `Approve USDC for ${asset.symbol}`,
-        instruction: serializeInstruction(approveInst),
+        stepName: `${req.direction === "buy" ? "Buy" : "Sell"} ${asset.symbol} via SwapRouter02`,
+        requiresApproval: false,
+        instruction: serializeInstruction(swapInst),
         provenance: evalResult.provenance,
         asset,
-        note: `Dual price check passed: Reference NAV $${req.referenceNavUsd.toFixed(2)}, DEX Price $${req.dexPriceUsd.toFixed(2)} (Spread: ${evalResult.provenance.navDeviationBps} bps, Session: ${evalResult.provenance.sessionStatus}).`,
+        sources: { nav: liveQuote.referenceSource, dex: liveQuote.dexSource },
+        note: `Non-atomic Step 2 Swap ready. Min output protected at ${req.slippageBps} bps slippage against live DEX price $${evalResult.provenance.dexExecutionPriceUsd.toFixed(2)}.`,
       },
     });
   }

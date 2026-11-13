@@ -1,19 +1,21 @@
 import type { OpportunityInput } from "./types";
 
 /**
- * Stablecoin Liquidity Pool Ingestion (Uniswap V3 / Aerodrome / Camelot).
+ * Stablecoin Liquidity Pool Ingestion (Aerodrome / Uniswap V3 via live DEX Screener pairs).
  *
- * Ingests stablecoin and correlated liquidity pools on Base and Arbitrum One.
+ * Never upgrades static fallback data to `dataMode: "live"`. If live DEX Screener reads fail,
+ * falls back honestly with `dataMode: "sample"` and missing/stale provenance flags.
  */
 
 export type PoolConfig = {
   chainId: number;
+  dexScreenerChain: "base" | "arbitrum";
   protocolSlug: string;
   protocolName: string;
   protocolType: "dex";
   tokenOrPairRef: string;
   poolAddress: string;
-  feeBps: number; // e.g. 1 for 0.01%, 5 for 0.05%
+  feeBps: number;
   fallbackVolume24h: number;
   fallbackTvl: number;
 };
@@ -21,43 +23,30 @@ export type PoolConfig = {
 export const TRACKED_POOLS: PoolConfig[] = [
   {
     chainId: 8453,
+    dexScreenerChain: "base",
     protocolSlug: "aerodrome",
     protocolName: "Aerodrome Slipstream",
     protocolType: "dex",
-    tokenOrPairRef: "USDC / EURC 0.01%",
-    poolAddress: "0x6f9175d3151eb0e0600490b8fcf2e3a893237ebc",
+    tokenOrPairRef: "EURC / USDC 0.01%",
+    poolAddress: "0x6eaEc4F69c92BD16a4B018Ceb6FE7A446A113598",
     feeBps: 1,
     fallbackVolume24h: 3_200_000,
-    fallbackTvl: 6_800_000,
+    fallbackTvl: 348_000,
   },
   {
     chainId: 42161,
+    dexScreenerChain: "arbitrum",
     protocolSlug: "uniswap-v3",
     protocolName: "Uniswap V3",
     protocolType: "dex",
-    tokenOrPairRef: "USDC / USDT 0.01%",
-    poolAddress: "0x8d58aF2207b99c016D4FEb323F66C239Bdf51A25",
+    tokenOrPairRef: "USDT0 / USDC 0.01%",
+    poolAddress: "0x13398E27a21Be1218b6900cbEDF677571df42A48",
     feeBps: 1,
-    fallbackVolume24h: 18_400_000,
-    fallbackTvl: 24_600_000,
-  },
-  {
-    chainId: 42161,
-    protocolSlug: "camelot",
-    protocolName: "Camelot DEX",
-    protocolType: "dex",
-    tokenOrPairRef: "USDC / USDT 0.02%",
-    poolAddress: "0x524eb45ccb00b46d90a781b0a8ebda1ee8d33d6d",
-    feeBps: 2,
-    fallbackVolume24h: 4_100_000,
-    fallbackTvl: 9_200_000,
+    fallbackVolume24h: 1_700,
+    fallbackTvl: 33_800,
   },
 ];
 
-/**
- * Pure function: calculate estimated annualized fee yield:
- * feeApy = (Volume24h * feeRate * 365) / TVL * 100
- */
 export function calculatePoolFeeApy(
   volume24hUsd: number,
   tvlUsd: number,
@@ -75,8 +64,35 @@ export async function ingestPoolOpportunities(): Promise<OpportunityInput[]> {
   const results: OpportunityInput[] = [];
 
   for (const pool of TRACKED_POOLS) {
-    const volume24hUsd = pool.fallbackVolume24h;
-    const tvlUsd = pool.fallbackTvl;
+    let volume24hUsd = pool.fallbackVolume24h;
+    let tvlUsd = pool.fallbackTvl;
+    let isLive = false;
+
+    try {
+      const res = await fetch(
+        `https://api.dexscreener.com/latest/dex/pairs/${pool.dexScreenerChain}/${pool.poolAddress}`,
+        { signal: AbortSignal.timeout(6_000) },
+      );
+      if (res.ok) {
+        const json = (await res.json()) as {
+          pair?: { liquidity?: { usd?: number }; volume?: { h24?: number } };
+          pairs?: Array<{ liquidity?: { usd?: number }; volume?: { h24?: number } }>;
+        };
+        const pair = json.pair ?? json.pairs?.[0];
+        if (
+          typeof pair?.liquidity?.usd === "number" &&
+          pair.liquidity.usd > 0 &&
+          typeof pair?.volume?.h24 === "number"
+        ) {
+          tvlUsd = Math.round(pair.liquidity.usd);
+          volume24hUsd = Math.round(pair.volume.h24);
+          isLive = true;
+        }
+      }
+    } catch {
+      // Preserve fallback values with honest dataMode: "sample"
+    }
+
     const estimatedApy = calculatePoolFeeApy(volume24hUsd, tvlUsd, pool.feeBps);
 
     results.push({
@@ -87,7 +103,8 @@ export async function ingestPoolOpportunities(): Promise<OpportunityInput[]> {
       websiteUrl:
         pool.chainId === 8453 ? "https://aerodrome.finance" : "https://app.uniswap.org",
       docsUrl: "https://developers.uniswap.org",
-      riskNotes: "Concentrated liquidity; stablecoin depeg, range out-of-bounds, and impermanent loss risk.",
+      riskNotes:
+        "Concentrated liquidity; stablecoin depeg, range out-of-bounds, and impermanent loss risk.",
       chainId: pool.chainId,
       tokenOrPairRef: pool.tokenOrPairRef,
       marketOrPoolAddress: pool.poolAddress,
@@ -104,13 +121,15 @@ export async function ingestPoolOpportunities(): Promise<OpportunityInput[]> {
         immediate: true,
         liquidityRemoval: "proportional",
       },
-      riskFlags: ["concentrated_range", "stablecoin_depeg", "impermanent_loss"],
+      riskFlags: isLive
+        ? ["concentrated_range", "stablecoin_depeg", "impermanent_loss"]
+        : ["concentrated_range", "stablecoin_depeg", "sample_fallback_rate"],
       sourcePayload: {
-        provider: "onchain_dex_analytics",
+        provider: isLive ? "dexscreener_v1_pair" : "sample_fallback",
         feeBps: pool.feeBps,
         annualizedVolumeMultiplier: 365,
       },
-      dataMode: "live",
+      dataMode: isLive ? "live" : "sample",
       observedAt: now,
       status: "active",
     });

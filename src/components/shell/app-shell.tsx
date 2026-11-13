@@ -11,14 +11,16 @@ import {
   Layers,
   LayoutGrid,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { SessionMenu } from "@/components/shell/session-menu";
 import { StatusDot } from "@/components/ui/primitives";
 import type { ShellSession } from "@/lib/shell-state";
 
 const NAV = [
-  { href: "/", label: "Overview", icon: LayoutGrid },
+  { href: "/app", label: "Overview", icon: LayoutGrid },
   { href: "/opportunities", label: "Opportunities", icon: Compass },
+  { href: "/copytrading", label: "Copytrading", icon: Users },
   { href: "/strategy", label: "Strategy", icon: Sparkles },
   { href: "/execute", label: "Execute", icon: ArrowLeftRight },
   { href: "/positions", label: "Positions", icon: Layers },
@@ -55,7 +57,7 @@ export function AppShell({
         <nav aria-label="Primary" className="hidden flex-1 px-3 pt-2 lg:block">
           <ul className="space-y-1">
             {NAV.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
               const Icon = item.icon;
               return (
                 <li key={item.href}>
@@ -92,7 +94,7 @@ export function AppShell({
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas/90 px-4 backdrop-blur lg:h-16 lg:px-8">
           <nav aria-label="Mobile" className="flex items-center gap-1 overflow-x-auto lg:hidden">
             {NAV.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const active = pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}

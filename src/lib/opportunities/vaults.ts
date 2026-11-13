@@ -98,15 +98,17 @@ export function buildVaultOpportunity(
       shareRedemption: true,
       receiptToken: vaultConfig.symbol,
     },
-    riskFlags: ["share_price_changes", "third_party_vault", "curator_risk"],
+    riskFlags: pool
+      ? ["share_price_changes", "third_party_vault", "curator_risk"]
+      : ["share_price_changes", "third_party_vault", "fallback_rate_unverified"],
     sourcePayload: {
-      provider: pool ? "defillama_yields_api" : "protocol_verified_preview",
+      provider: pool ? "defillama_yields_api" : "sample_fallback",
       poolId: pool?.pool ?? null,
       project: pool?.project ?? "morpho-blue",
       underlyingToken: "USDC",
       assetId: vaultConfig.assetId ?? null,
     },
-    dataMode: "live",
+    dataMode: pool ? "live" : "sample",
     observedAt,
     status: "active",
   };

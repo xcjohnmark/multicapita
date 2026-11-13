@@ -24,8 +24,8 @@ export async function syncWalletPortfolio(userId: string, walletAddress: Address
   });
   if (!user) throw new Error(`User ${userId} not found.`);
 
-  // 1. Ensure wallets exist in DB for Base & Arbitrum
-  const walletMap = new Map<number, string>(); // chainId -> walletId
+  // 1. Ensure primary signer wallets exist in DB across supported EVM chains
+  const walletMap = new Map<string, string>(); // `${chainId}:${address}` -> walletId
   const now = new Date();
 
   for (const chain of SUPPORTED_CHAINS) {
@@ -48,9 +48,50 @@ export async function syncWalletPortfolio(userId: string, walletAddress: Address
       update: {
         ownershipVerifiedAt: now,
       },
-      select: { id: true, chainId: true },
+      select: { id: true, chainId: true, address: true },
     });
-    walletMap.set(wallet.chainId, wallet.id);
+    walletMap.set(`${wallet.chainId}:${wallet.address.toLowerCase()}`, wallet.id);
+  }
+
+  // Also include any user-imported EVM wallets for cross-wallet balance sync
+  const userEvmWallets = await prisma.wallet.findMany({
+    where: { userId: user.id, chainFamily: "evm" },
+    select: { id: true, chainId: true, address: true },
+  });
+  const evmAddresses = new Set<string>([address]);
+  for (const w of userEvmWallets) {
+    const norm = w.address.toLowerCase();
+    evmAddresses.add(norm);
+    walletMap.set(`${w.chainId}:${norm}`, w.id);
+  }
+
+  // Ensure imported EVM addresses have a wallet row on every supported EVM chain we read
+  for (const evmAddr of evmAddresses) {
+    if (evmAddr === address) continue;
+    for (const chain of SUPPORTED_CHAINS) {
+      const key = `${chain.id}:${evmAddr}`;
+      if (!walletMap.has(key)) {
+        const created = await prisma.wallet.upsert({
+          where: {
+            userId_chainId_address: {
+              userId: user.id,
+              chainId: chain.id,
+              address: evmAddr,
+            },
+          },
+          create: {
+            userId: user.id,
+            chainId: chain.id,
+            address: evmAddr,
+            chainFamily: "evm",
+            label: `Imported ${chain.name} Wallet`,
+          },
+          update: {},
+          select: { id: true },
+        });
+        walletMap.set(key, created.id);
+      }
+    }
   }
 
   // 2. Ensure all tracked tokens exist in Token table
@@ -92,8 +133,13 @@ export async function syncWalletPortfolio(userId: string, walletAddress: Address
     }
   }
 
-  // 3. Read live on-chain balances across Base and Arbitrum
-  const onChainBalances = await readWalletBalances(walletAddress);
+  // 3. Read live on-chain balances across Base, Arbitrum, and Ethereum for all user EVM addresses
+  const balancesByAddr = await Promise.all(
+    Array.from(evmAddresses).map(async (evmAddr) => ({
+      addr: evmAddr,
+      balances: await readWalletBalances(evmAddr as Address),
+    })),
+  );
 
   // 4. Fetch spot prices for tracked assets
   const coingeckoIds = allTrackedTokens
@@ -101,67 +147,69 @@ export async function syncWalletPortfolio(userId: string, walletAddress: Address
     .filter((id): id is string => Boolean(id));
   const spotPrices = await fetchSpotPrices(coingeckoIds);
 
-  // 5. Compute valuations for every held token
+  // 5. Compute valuations for every held token across all linked EVM wallets
   const valuations: (TokenValuation & { walletId: string; tokenId: string })[] = [];
 
-  for (const chainBalance of onChainBalances.chains) {
-    const chainConfig = SUPPORTED_CHAINS.find((c) => c.id === chainBalance.chainId);
-    if (!chainConfig) continue;
+  for (const { addr: evmAddr, balances: onChainBalances } of balancesByAddr) {
+    for (const chainBalance of onChainBalances.chains) {
+      const chainConfig = SUPPORTED_CHAINS.find((c) => c.id === chainBalance.chainId);
+      if (!chainConfig) continue;
 
-    const walletId = walletMap.get(chainBalance.chainId);
-    if (!walletId) continue;
+      const walletId = walletMap.get(`${chainBalance.chainId}:${evmAddr}`);
+      if (!walletId) continue;
 
-    // Process native token
-    if (chainBalance.native) {
-      const nativeConfig = chainConfig.tokens.find((t) => t.isNative);
-      const contractAddress = (nativeConfig?.address ?? "0x0000000000000000000000000000000000000000").toLowerCase();
-      const tokenId = tokenDbMap.get(`${chainBalance.chainId}:${contractAddress}`);
+      // Process native token
+      if (chainBalance.native) {
+        const nativeConfig = chainConfig.tokens.find((t) => t.isNative);
+        const contractAddress = (nativeConfig?.address ?? "0x0000000000000000000000000000000000000000").toLowerCase();
+        const tokenId = tokenDbMap.get(`${chainBalance.chainId}:${contractAddress}`);
 
-      if (tokenId && nativeConfig) {
-        const pricePoint = nativeConfig.coingeckoId
-          ? spotPrices.get(nativeConfig.coingeckoId) ?? null
-          : null;
+        if (tokenId && nativeConfig) {
+          const pricePoint = nativeConfig.coingeckoId
+            ? spotPrices.get(nativeConfig.coingeckoId) ?? null
+            : null;
 
-        const input: RawBalanceInput = {
-          chainId: chainBalance.chainId,
-          contractAddress,
-          symbol: chainBalance.native.symbol,
-          decimals: chainBalance.native.decimals,
-          amountAtomic: chainBalance.native.amountAtomic,
-          isStablecoin: false,
-          coingeckoId: nativeConfig.coingeckoId,
-        };
+          const input: RawBalanceInput = {
+            chainId: chainBalance.chainId,
+            contractAddress,
+            symbol: chainBalance.native.symbol,
+            decimals: chainBalance.native.decimals,
+            amountAtomic: chainBalance.native.amountAtomic,
+            isStablecoin: false,
+            coingeckoId: nativeConfig.coingeckoId,
+          };
 
-        const val = calculateTokenValuation(input, pricePoint);
-        valuations.push({ ...val, walletId, tokenId });
+          const val = calculateTokenValuation(input, pricePoint);
+          valuations.push({ ...val, walletId, tokenId });
+        }
       }
-    }
 
-    // Process ERC-20 tokens
-    for (const tokenLine of chainBalance.tokens) {
-      const tokenConfig = chainConfig.tokens.find(
-        (t) => t.address.toLowerCase() === tokenLine.address.toLowerCase(),
-      );
-      const contractAddress = tokenLine.address.toLowerCase();
-      const tokenId = tokenDbMap.get(`${chainBalance.chainId}:${contractAddress}`);
+      // Process ERC-20 tokens
+      for (const tokenLine of chainBalance.tokens) {
+        const tokenConfig = chainConfig.tokens.find(
+          (t) => t.address.toLowerCase() === tokenLine.address.toLowerCase(),
+        );
+        const contractAddress = tokenLine.address.toLowerCase();
+        const tokenId = tokenDbMap.get(`${chainBalance.chainId}:${contractAddress}`);
 
-      if (tokenId && tokenConfig) {
-        const pricePoint = tokenConfig.coingeckoId
-          ? spotPrices.get(tokenConfig.coingeckoId) ?? null
-          : null;
+        if (tokenId && tokenConfig) {
+          const pricePoint = tokenConfig.coingeckoId
+            ? spotPrices.get(tokenConfig.coingeckoId) ?? null
+            : null;
 
-        const input: RawBalanceInput = {
-          chainId: chainBalance.chainId,
-          contractAddress,
-          symbol: tokenLine.symbol,
-          decimals: tokenLine.decimals,
-          amountAtomic: tokenLine.amountAtomic,
-          isStablecoin: tokenConfig.isStablecoin,
-          coingeckoId: tokenConfig.coingeckoId,
-        };
+          const input: RawBalanceInput = {
+            chainId: chainBalance.chainId,
+            contractAddress,
+            symbol: tokenLine.symbol,
+            decimals: tokenLine.decimals,
+            amountAtomic: tokenLine.amountAtomic,
+            isStablecoin: tokenConfig.isStablecoin,
+            coingeckoId: tokenConfig.coingeckoId,
+          };
 
-        const val = calculateTokenValuation(input, pricePoint);
-        valuations.push({ ...val, walletId, tokenId });
+          const val = calculateTokenValuation(input, pricePoint);
+          valuations.push({ ...val, walletId, tokenId });
+        }
       }
     }
   }

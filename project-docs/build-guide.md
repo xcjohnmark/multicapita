@@ -390,12 +390,12 @@ Each stage is defined with clear prerequisites, concrete implementation steps, f
   - [x] Configure automated position snapshot sync worker
   - [x] Verify append-only audit trail on `/activity`
 
-- [ ] **S7: Cross-Chain Wallet Copytrading (All Setup from NEAR)**
-  - [ ] Integrate Zerion / DeBank / Sim by Dune wallet position & history indexer (`src/lib/copytrading/indexer.ts`)
-  - [ ] Build Top Performers leaderboard filtering out memecoins, MEV bots, and wash traders
-  - [ ] Add AI Wallet X-Ray explainer via NEAR AI Cloud with spot-only / hidden-hedge warnings
-  - [ ] Add deterministic copy guardrails (`noMemecoinsOnly`, `maxPriceDriftFromLeaderBps`, `maxUsdPerCopyTrade`, `maxDailyCopyBudgetUsd`)
-  - [ ] Wire NEAR Intents Agent API bounded auto-copy + NEAR Chain Signatures adapter for Aave/Uniswap mirroring
+- [x] **S7: Cross-Chain Wallet Copytrading (All Setup from NEAR)**
+  - [x] Integrate Zerion / DeBank / Sim by Dune wallet position & history indexer (`src/lib/copytrading/indexer.ts`)
+  - [x] Build Top Performers leaderboard filtering out memecoins, MEV bots, and wash traders
+  - [x] Add AI Wallet X-Ray explainer via NEAR AI Cloud with spot-only / hidden-hedge warnings
+  - [x] Add deterministic copy guardrails (`noMemecoinsOnly`, `maxPriceDriftFromLeaderBps`, `maxUsdPerCopyTrade`, `maxDailyCopyBudgetUsd`)
+  - [x] Wire NEAR Intents Agent API bounded auto-copy + NEAR Chain Signatures adapter for Aave/Uniswap mirroring
 ```
 
 ---

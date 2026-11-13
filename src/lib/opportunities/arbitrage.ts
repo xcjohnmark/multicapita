@@ -1,16 +1,14 @@
+import { quoteCrossChainCost } from "@/lib/near/route-cost";
 import type { OpportunityInput } from "./types";
 
 /**
  * Cross-Chain Arbitrage Scanner (Base <-> Arbitrum).
  *
- * Scans identical canonical assets (WETH, EURC, USDC) across DEX liquidity pools
- * on Base (Aerodrome, Uniswap) vs Arbitrum (Uniswap, Camelot).
- *
- * Deterministic formula:
- *   NetProfit = SellOutput - BuyInput - DEXFees - GasCost - 1ClickBridgeFee
+ * Computes real spread from live DEX Screener quotes on Base vs Arbitrum plus
+ * live 1Click bridge quote cost. Marks `dataMode: "sample"` whenever live endpoints fail.
  */
 
-export const MIN_ARBITRAGE_PROFIT_USD = 5.0; // Policy minimum threshold
+export const MIN_ARBITRAGE_PROFIT_USD = 5.0;
 
 export type ArbitrageCalcParams = {
   buyInputUsd: number;
@@ -29,9 +27,6 @@ export type ArbitrageCalcResult = {
   reason?: string;
 };
 
-/**
- * Pure deterministic calculation for cross-chain arbitrage profitability.
- */
 export function calculateArbitrageNetProfit({
   buyInputUsd,
   sellOutputUsd,
@@ -60,79 +55,121 @@ export function calculateArbitrageNetProfit({
 
 export type ArbOpportunityConfig = {
   assetSymbol: string;
-  tokenOrPairRef: string;
+  baseTokenAddress: string;
+  arbTokenAddress: string;
   sourceChainId: number;
   destChainId: number;
   sourceDex: string;
   destDex: string;
   tradeSizeUsd: number;
-  grossSpreadBps: number; // e.g. 18 bps gross spread observed
-  dexFeeBps: number; // e.g. 5 bps swap fee
-  gasCostUsd: number; // e.g. $1.50 per chain = $3.00
-  bridgeFeeBps: number; // e.g. 2.5 bps 1Click fee
+  dexFeeBps: number;
+  gasCostUsd: number;
 };
 
 export const TRACKED_ARB_PAIRS: ArbOpportunityConfig[] = [
   {
     assetSymbol: "WETH",
-    tokenOrPairRef: "WETH: Base (Aerodrome) → Arb (Uniswap)",
+    baseTokenAddress: "0x4200000000000000000000000000000000000006",
+    arbTokenAddress: "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
     sourceChainId: 8453,
     destChainId: 42161,
-    sourceDex: "Aerodrome",
+    sourceDex: "Aerodrome / Uniswap",
     destDex: "Uniswap V3",
     tradeSizeUsd: 10_000,
-    grossSpreadBps: 18, // 0.18% gross spread
     dexFeeBps: 5,
-    gasCostUsd: 3.0,
-    bridgeFeeBps: 2.5,
-  },
-  {
-    assetSymbol: "EURC",
-    tokenOrPairRef: "EURC: Base (Aerodrome) → Arb (Camelot)",
-    sourceChainId: 8453,
-    destChainId: 42161,
-    sourceDex: "Aerodrome",
-    destDex: "Camelot",
-    tradeSizeUsd: 5_000,
-    grossSpreadBps: 24, // 0.24% gross spread
-    dexFeeBps: 4,
-    gasCostUsd: 3.0,
-    bridgeFeeBps: 2.5,
+    gasCostUsd: 0.4,
   },
   {
     assetSymbol: "USDC",
-    tokenOrPairRef: "USDC: Base (Aerodrome) → Arb (Uniswap)",
+    baseTokenAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    arbTokenAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
     sourceChainId: 8453,
     destChainId: 42161,
     sourceDex: "Aerodrome",
     destDex: "Uniswap V3",
     tradeSizeUsd: 2_000,
-    grossSpreadBps: 4, // 0.04% small spread
     dexFeeBps: 2,
-    gasCostUsd: 3.0,
-    bridgeFeeBps: 2.5,
+    gasCostUsd: 0.4,
   },
 ];
+
+async function fetchDexPriceUsd(chain: "base" | "arbitrum", address: string): Promise<{
+  priceUsd: number;
+  liquidityUsd: number;
+} | null> {
+  try {
+    const res = await fetch(`https://api.dexscreener.com/tokens/v1/${chain}/${address}`, {
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (!res.ok) return null;
+    const pairs = (await res.json()) as Array<{
+      priceUsd?: string;
+      liquidity?: { usd?: number };
+    }>;
+    if (!Array.isArray(pairs) || pairs.length === 0) return null;
+    const top = [...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
+    const priceUsd = top?.priceUsd ? Number(top.priceUsd) : NaN;
+    if (!Number.isFinite(priceUsd) || priceUsd <= 0) return null;
+    return {
+      priceUsd,
+      liquidityUsd: Math.round(top?.liquidity?.usd ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function ingestArbitrageOpportunities(): Promise<OpportunityInput[]> {
   const now = new Date();
   const results: OpportunityInput[] = [];
 
   for (const arb of TRACKED_ARB_PAIRS) {
+    const [baseQuote, arbQuote, oneClickCost] = await Promise.all([
+      fetchDexPriceUsd("base", arb.baseTokenAddress),
+      fetchDexPriceUsd("arbitrum", arb.arbTokenAddress),
+      quoteCrossChainCost({
+        fromChainId: arb.sourceChainId,
+        toChainId: arb.destChainId,
+        amountUsd: arb.tradeSizeUsd,
+      }).catch(() => ({ ok: false as const })),
+    ]);
+
+    const hasLiveSpread = Boolean(baseQuote && arbQuote);
+    let grossSpreadBps = 0;
+    let directionReversed = false;
+    if (baseQuote && arbQuote) {
+      const spreadA = ((arbQuote.priceUsd - baseQuote.priceUsd) / baseQuote.priceUsd) * 10_000;
+      const spreadB = ((baseQuote.priceUsd - arbQuote.priceUsd) / arbQuote.priceUsd) * 10_000;
+      if (spreadB > spreadA) {
+        grossSpreadBps = Math.max(0, Math.round(spreadB * 10) / 10);
+        directionReversed = true;
+      } else {
+        grossSpreadBps = Math.max(0, Math.round(spreadA * 10) / 10);
+      }
+    }
+
+    const bridgeBps =
+      oneClickCost.ok && typeof oneClickCost.impliedCostBps === "number"
+        ? oneClickCost.impliedCostBps
+        : 2.5;
+
     const buyInputUsd = arb.tradeSizeUsd;
-    const sellOutputUsd = buyInputUsd * (1 + arb.grossSpreadBps / 10_000);
+    const sellOutputUsd = buyInputUsd * (1 + grossSpreadBps / 10_000);
     const dexFeesUsd = buyInputUsd * (arb.dexFeeBps / 10_000);
-    const bridgeFeeUsd = buyInputUsd * (arb.bridgeFeeBps / 10_000);
-    const gasCostUsd = arb.gasCostUsd;
+    const bridgeFeeUsd = buyInputUsd * (bridgeBps / 10_000);
 
     const calc = calculateArbitrageNetProfit({
       buyInputUsd,
       sellOutputUsd,
       dexFeesUsd,
-      gasCostUsd,
+      gasCostUsd: arb.gasCostUsd,
       bridgeFeeUsd,
       minProfitUsd: MIN_ARBITRAGE_PROFIT_USD,
     });
+
+    const routeLabel = directionReversed
+      ? `${arb.assetSymbol}: Arb (${arb.destDex}) → Base (${arb.sourceDex})`
+      : `${arb.assetSymbol}: Base (${arb.sourceDex}) → Arb (${arb.destDex})`;
 
     results.push({
       strategyType: "arbitrage",
@@ -141,35 +178,40 @@ export async function ingestArbitrageOpportunities(): Promise<OpportunityInput[]
       protocolType: "dex",
       websiteUrl: "https://aerodrome.finance",
       docsUrl: "https://docs.agentsonintents.com",
-      riskNotes: "Cross-chain latency; execution occurs across two independent legs with settlement delay.",
-      chainId: arb.sourceChainId,
-      tokenOrPairRef: arb.tokenOrPairRef,
-      marketOrPoolAddress: undefined,
-      estimatedApy: calc.profitBps > 0 ? (calc.profitBps / 100) : 0, // profit as return %
+      riskNotes:
+        "Cross-chain latency; execution occurs across two independent legs with settlement delay.",
+      chainId: directionReversed ? arb.destChainId : arb.sourceChainId,
+      tokenOrPairRef: routeLabel,
+      marketOrPoolAddress: directionReversed ? arb.arbTokenAddress : arb.baseTokenAddress,
+      estimatedApy: calc.profitBps > 0 ? calc.profitBps / 100 : 0,
       rateType: "estimated_net_trade_profit",
-      tvlUsd: 50_000_000,
-      liquidityUsd: 5_000_000,
+      tvlUsd: Math.min(baseQuote?.liquidityUsd ?? 0, arbQuote?.liquidityUsd ?? 0) || undefined,
+      liquidityUsd: Math.min(baseQuote?.liquidityUsd ?? 0, arbQuote?.liquidityUsd ?? 0) || undefined,
       feesJson: {
         dexFeeBps: arb.dexFeeBps,
-        bridgeFeeBps: arb.bridgeFeeBps,
-        gasCostUsd,
+        bridgeFeeBps: bridgeBps,
+        gasCostUsd: arb.gasCostUsd,
       },
       withdrawalJson: {
         immediate: true,
         settlementTimeSeconds: 30,
       },
-      riskFlags: ["cross_chain_latency", "non_atomic_execution", "slippage_drift"],
+      riskFlags: hasLiveSpread
+        ? ["cross_chain_latency", "non_atomic_execution", "slippage_drift"]
+        : ["cross_chain_latency", "non_atomic_execution", "live_spread_unavailable"],
       sourcePayload: {
-        provider: "capita_arbitrage_engine",
+        provider: hasLiveSpread ? "dexscreener_plus_1click" : "sample_fallback",
         tradeSizeUsd: arb.tradeSizeUsd,
-        grossSpreadBps: arb.grossSpreadBps,
+        grossSpreadBps,
         expectedProfitUsd: calc.netProfitUsd,
+        basePriceUsd: baseQuote?.priceUsd ?? null,
+        arbPriceUsd: arbQuote?.priceUsd ?? null,
         isExecutable: calc.isExecutable,
         reason: calc.reason ?? null,
       },
-      dataMode: "live",
+      dataMode: hasLiveSpread ? "live" : "sample",
       observedAt: now,
-      status: calc.status,
+      status: hasLiveSpread ? calc.status : "rejected",
     });
   }
 

@@ -13,6 +13,8 @@ export const strategyTypeSchema = z.enum([
   "lending",
   "stablecoin_lp",
   "arbitrage",
+  "tokenized_equity",
+  "copytrading",
 ]);
 
 export type StrategyType = z.infer<typeof strategyTypeSchema>;
@@ -111,6 +113,10 @@ export const violationCodeSchema = z.enum([
   "sample_data_in_plan",
   "weights_normalized",
   "user_approval_required",
+  "memecoin_excluded_in_copytrading",
+  "copy_price_drift_exceeded",
+  "copy_trade_cap_exceeded",
+  "copy_daily_budget_exceeded",
 ]);
 
 export type ViolationCode = z.infer<typeof violationCodeSchema>;

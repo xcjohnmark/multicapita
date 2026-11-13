@@ -13,7 +13,9 @@ import {
   StatusDot,
 } from "@/components/ui/primitives";
 import { SyncButton } from "@/components/ui/sync-button";
+import { LinkedWalletsPanel } from "@/components/wallet/linked-wallets";
 import { getViewer } from "@/lib/auth/viewer";
+import { getPrisma } from "@/lib/db/client";
 import {
   formatBps,
   formatDateTime,
@@ -34,36 +36,59 @@ const STRATEGY_TONE: Record<string, string> = {
   stablecoin_lp: "bg-info",
   yield_vault: "bg-warn",
   arbitrage: "bg-danger",
+  tokenized_equity: "bg-indigo-500",
+  copytrading: "bg-emerald-500",
 };
 
 export default async function OverviewPage() {
   const viewer = await getViewer();
   if (!viewer) redirect("/signin");
 
-  const [portfolio, preview, health] = await Promise.all([
+  const prisma = getPrisma();
+  const [portfolio, preview, health, wallets] = await Promise.all([
     getPortfolioOverview(viewer.userId),
     getRoutePreview(),
     runPortfolioHealthCheck(viewer.userId),
+    prisma.wallet.findMany({
+      where: { userId: viewer.userId },
+      orderBy: [{ ownershipVerifiedAt: "desc" }, { chainId: "asc" }],
+      select: {
+        id: true,
+        address: true,
+        chainFamily: true,
+        chainId: true,
+        label: true,
+        ownershipVerifiedAt: true,
+      },
+    }),
   ]);
+
+  const linkedWallets = wallets.map((w) => ({
+    ...w,
+    ownershipVerifiedAt: w.ownershipVerifiedAt ? w.ownershipVerifiedAt.toISOString() : null,
+  }));
 
   if (!portfolio || !portfolio.snapshot) {
     return (
-      <Panel>
-        <PanelHeader title="Portfolio" eyebrow="Overview" />
-        <EmptyState
-          title="No portfolio snapshot yet"
-          description="Seed the local demo portfolio to explore the product, or connect a wallet to sync live balances. Nothing here is live until it says so."
-          action={
-            !viewer.demo ? (
-              <SyncButton endpoint="/api/portfolio/sync" label="Sync wallet balances" variant="primary" />
-            ) : (
-              <code className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-ink-secondary">
-                npm run db:seed
-              </code>
-            )
-          }
-        />
-      </Panel>
+      <div className="space-y-6">
+        <Panel>
+          <PanelHeader title="Portfolio" eyebrow="Overview" />
+          <EmptyState
+            title="No portfolio snapshot yet"
+            description="Seed the local demo portfolio to explore the product, or connect a wallet to sync live balances. Nothing here is live until it says so."
+            action={
+              !viewer.demo ? (
+                <SyncButton endpoint="/api/portfolio/sync" label="Sync wallet balances" variant="primary" />
+              ) : (
+                <code className="rounded-lg border border-line bg-surface px-3 py-2 font-mono text-xs text-ink-secondary">
+                  npm run db:seed
+                </code>
+              )
+            }
+          />
+        </Panel>
+        <LinkedWalletsPanel initialWallets={linkedWallets} />
+      </div>
     );
   }
 
@@ -433,6 +458,8 @@ export default async function OverviewPage() {
           </table>
         </div>
       </Panel>
+
+      <LinkedWalletsPanel initialWallets={linkedWallets} />
     </div>
   );
 }

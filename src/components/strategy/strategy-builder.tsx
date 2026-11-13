@@ -58,6 +58,7 @@ export function StrategyBuilder({
   const [objective, setObjective] = useState<string>(PRESET_OBJECTIVES[0].text);
   const [pending, setPending] = useState(false);
   const [reEvaluating, setReEvaluating] = useState(false);
+  const [guardrailsSaved, setGuardrailsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ProposeResponse | null>(null);
 
@@ -112,6 +113,7 @@ export function StrategyBuilder({
   async function applyCustomization(event: React.FormEvent) {
     event.preventDefault();
     setReEvaluating(true);
+    setGuardrailsSaved(false);
     setError(null);
     try {
       const customLegs =
@@ -124,15 +126,27 @@ export function StrategyBuilder({
               }))
           : undefined;
 
-      const response = await fetch("/api/strategy/propose", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          objective,
-          guardrailOverrides: overrides,
-          customLegs,
+      const [constraintRes, response] = await Promise.all([
+        fetch("/api/strategy/constraints", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(overrides),
         }),
-      });
+        fetch("/api/strategy/propose", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            objective,
+            guardrailOverrides: overrides,
+            customLegs,
+          }),
+        }),
+      ]);
+
+      if (constraintRes.ok) {
+        setGuardrailsSaved(true);
+      }
+
       const body = (await response.json()) as {
         data?: ProposeResponse;
         error?: { message: string };
@@ -367,7 +381,9 @@ export function StrategyBuilder({
 
                   <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3.5">
                     <p className="text-xs text-ink-muted">
-                      Weights are normalized and checked deterministically by the policy engine.
+                      {guardrailsSaved
+                        ? "Guardrail caps persisted to your profile and checked by the policy engine."
+                        : "Weights are normalized, saved to your profile, and checked by the policy engine."}
                     </p>
                     <button
                       type="submit"
@@ -380,7 +396,7 @@ export function StrategyBuilder({
                       ) : (
                         <ShieldCheck className="size-3.5" strokeWidth={1.5} aria-hidden />
                       )}
-                      <span>{reEvaluating ? "Checking policy…" : "Re-evaluate with overrides"}</span>
+                      <span>{reEvaluating ? "Saving & checking…" : "Save & re-evaluate"}</span>
                     </button>
                   </div>
                 </div>

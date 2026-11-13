@@ -33,6 +33,7 @@ const STRATEGY_TABS = [
   { key: "yield_vault", label: "Yield vaults" },
   { key: "stablecoin_lp", label: "Stablecoin LP" },
   { key: "arbitrage", label: "Arbitrage" },
+  { key: "tokenized_equity", label: "Tokenized Equities" },
 ] as const;
 
 const STRATEGY_GROUP_LABELS: Record<string, string> = {
@@ -40,12 +41,14 @@ const STRATEGY_GROUP_LABELS: Record<string, string> = {
   yield_vault: "Yield vaults",
   stablecoin_lp: "Stablecoin liquidity",
   arbitrage: "Cross-chain arbitrage",
+  tokenized_equity: "Tokenized equities & RWAs",
 };
 
 const CHAIN_FILTERS = [
   { key: "all", label: "All chains" },
   { key: "8453", label: "Base" },
   { key: "42161", label: "Arbitrum" },
+  { key: "1", label: "Ethereum" },
 ] as const;
 
 export function OpportunitiesExplorer({
@@ -71,7 +74,7 @@ export function OpportunitiesExplorer({
   const groupsToRender = useMemo(() => {
     const keys =
       strategyTab === "all"
-        ? (["lending", "yield_vault", "stablecoin_lp", "arbitrage"] as const)
+        ? (["lending", "yield_vault", "stablecoin_lp", "arbitrage", "tokenized_equity"] as const)
         : ([strategyTab] as const);
     return keys
       .map((key) => ({
@@ -236,8 +239,28 @@ export function OpportunitiesExplorer({
                   <tbody className="divide-y divide-line-faint">
                     {group.rows.map((row) => {
                       const isArb = row.strategyType === "arbitrage";
+                      const isEquity = row.strategyType === "tokenized_equity";
                       const hasProfit = row.expectedProfitUsd !== null;
                       const missingRate = !isArb && row.estimatedApy === null;
+
+                      let actionHref = `/execute?direction=${
+                        row.chainId === 42161 ? "base-to-arb" : "arb-to-base"
+                      }&amount=100`;
+                      let actionLabel = "Move funds";
+                      if (row.strategyType === "lending") {
+                        actionHref = `/execute?action=aave_supply&chainId=${row.chainId}&amount=10`;
+                        actionLabel = "Supply Aave";
+                      } else if (row.strategyType === "stablecoin_lp") {
+                        actionHref = `/execute?action=uniswap_mint&chainId=${row.chainId}&amount=10`;
+                        actionLabel = "Add LP";
+                      } else if (isEquity) {
+                        actionHref = row.marketOrPoolAddress
+                          ? `/execute?action=equity_swap&chainId=${row.chainId}&contract=${row.marketOrPoolAddress}&amount=10`
+                          : `/execute?action=equity_swap`;
+                        actionLabel = "Buy / Sell";
+                      } else if (isArb) {
+                        actionLabel = "Execute Arb";
+                      }
 
                       return (
                         <tr
@@ -279,7 +302,7 @@ export function OpportunitiesExplorer({
                                 : formatPercent(row.estimatedApy)}
                             </span>
                             <span className="ml-1 text-[10px] uppercase text-ink-muted">
-                              {isArb ? "net est." : (row.rateType ?? "")}
+                              {isArb ? "net est." : isEquity ? "NAV diff" : (row.rateType ?? "")}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-right metric text-ink-secondary" data-numeric>
@@ -311,10 +334,10 @@ export function OpportunitiesExplorer({
                           </td>
                           <td className="px-5 py-3 text-right">
                             <Link
-                              href={`/execute?direction=${row.chainId === 42161 ? "base-to-arb" : "arb-to-base"}&amount=100`}
+                              href={actionHref}
                               className="btn btn-secondary h-8 px-2.5 text-xs"
                             >
-                              <span>Move funds</span>
+                              <span>{actionLabel}</span>
                               <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
                             </Link>
                           </td>

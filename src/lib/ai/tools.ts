@@ -14,7 +14,9 @@ import type { ToolDefinition } from "./client";
 export const portfolioSummaryArgs = z.object({});
 
 export const listOpportunitiesArgs = z.object({
-  strategyType: z.enum(["yield_vault", "lending", "stablecoin_lp", "arbitrage"]).optional(),
+  strategyType: z
+    .enum(["yield_vault", "lending", "stablecoin_lp", "arbitrage", "tokenized_equity", "copytrading"])
+    .optional(),
   chainId: z.number().int().optional(),
 });
 
@@ -61,10 +63,10 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         properties: {
           strategyType: {
             type: "string",
-            enum: ["yield_vault", "lending", "stablecoin_lp", "arbitrage"],
+            enum: ["yield_vault", "lending", "stablecoin_lp", "arbitrage", "tokenized_equity", "copytrading"],
             description: "Optional filter.",
           },
-          chainId: { type: "number", description: "Optional chain id filter (8453 Base, 42161 Arbitrum)." },
+          chainId: { type: "number", description: "Optional chain id filter (8453 Base, 42161 Arbitrum, 1 Ethereum)." },
         },
         additionalProperties: false,
       },

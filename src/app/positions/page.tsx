@@ -1,9 +1,11 @@
-import { redirect } from "next/navigation";
+import { PositionActions } from "@/components/positions/position-actions";
 import { AssetIcon } from "@/components/ui/asset-icon";
 import { ChainBadge, Panel, PanelHeader, StatusDot } from "@/components/ui/primitives";
+import { SyncButton } from "@/components/ui/sync-button";
 import { getViewer } from "@/lib/auth/viewer";
 import { getPrisma } from "@/lib/db/client";
 import { formatDateTime, formatPercent, formatUsd, formatUsdDelta } from "@/lib/format";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +20,12 @@ export default async function PositionsPage() {
       receiptToken: true,
       snapshots: { orderBy: { snapshotAt: "desc" }, take: 1 },
     },
-    orderBy: { currentValueUsd: "desc" },
+    orderBy: [{ status: "asc" }, { currentValueUsd: "desc" }],
   });
 
-  const deployed = positions.reduce((sum, p) => sum + (p.currentValueUsd ?? 0), 0);
-  const pnl = positions.reduce((sum, p) => sum + (p.unrealisedPnlUsd ?? 0), 0);
+  const openPositions = positions.filter((p) => p.status === "open");
+  const deployed = openPositions.reduce((sum, p) => sum + (p.currentValueUsd ?? 0), 0);
+  const pnl = openPositions.reduce((sum, p) => sum + (p.unrealisedPnlUsd ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -31,7 +34,7 @@ export default async function PositionsPage() {
           <p className="eyebrow">Management</p>
           <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">Positions</h1>
         </div>
-        <div className="flex gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-6 text-sm">
           <div>
             <p className="eyebrow">Deployed</p>
             <p className="metric mt-1 font-semibold text-ink" data-numeric>
@@ -49,64 +52,72 @@ export default async function PositionsPage() {
               {formatUsdDelta(pnl)}
             </p>
           </div>
+          {!viewer.demo ? (
+            <SyncButton endpoint="/api/portfolio/sync" label="Refresh balances" variant="secondary" />
+          ) : null}
         </div>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {positions.map((position) => {
-          const snapshot = position.snapshots[0];
-          return (
-            <Panel key={position.id}>
-              <PanelHeader
-                title={position.positionReference}
-                eyebrow={position.protocol.name}
-                meta={
-                  <div className="flex items-center gap-2">
-                    <AssetIcon symbolOrName={position.protocol.name} size="sm" />
-                    <span className="chip capitalize">
-                      <StatusDot tone={position.status === "open" ? "ok" : "idle"} />
-                      {position.status}
-                    </span>
-                  </div>
-                }
-              />
-              <div className="grid grid-cols-2 gap-4 px-5 py-4 sm:grid-cols-4">
-                <Field label="Value" value={formatUsd(position.currentValueUsd)} />
-                <Field
-                  label="Rate"
-                  value={snapshot ? formatPercent(snapshot.rateValue) : "—"}
-                  hint={snapshot?.rateType ?? undefined}
-                />
-                <Field
-                  label="Unrealised"
-                  value={formatUsdDelta(position.unrealisedPnlUsd)}
-                  tone={(position.unrealisedPnlUsd ?? 0) >= 0 ? "positive" : "negative"}
-                />
-                <Field label="Accrued" value={formatUsdDelta(position.accruedReturnUsd)} />
-              </div>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line bg-surface px-5 py-3 text-xs text-ink-muted">
-                <ChainBadge chainId={position.chainId} />
-                <span>Opened: {formatDateTime(position.openedAt)}</span>
-                <span>Last synced: {formatDateTime(position.lastSyncedAt)}</span>
-              </div>
-            </Panel>
-          );
-        })}
-      </div>
-
-      <Panel variant="inset">
-        <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between text-sm text-ink-secondary">
-          <div>
-            <p className="font-medium text-ink">Manage & Withdraw Protocol Positions</p>
-            <p className="mt-1 max-w-2xl text-xs text-ink-muted">
-              Burn aTokens or remove liquidity using verified protocol adapters on Base and Arbitrum. Every withdrawal requires an explicit self-custodial wallet signature.
-            </p>
+      {positions.length === 0 ? (
+        <Panel>
+          <div className="px-5 py-10 text-center text-sm text-ink-muted">
+            No active or historical positions yet. Deploy capital from Opportunities or the Execute
+            console to start tracking positions here.
           </div>
-          <a href="/execute" className="btn btn-primary h-9 px-4 text-xs shrink-0 self-start sm:self-auto">
-            <span>Open Withdrawal Rail</span>
-          </a>
+        </Panel>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {positions.map((position) => {
+            const snapshot = position.snapshots[0];
+            return (
+              <Panel key={position.id}>
+                <PanelHeader
+                  title={position.positionReference}
+                  eyebrow={position.protocol.name}
+                  meta={
+                    <div className="flex items-center gap-2">
+                      <AssetIcon symbolOrName={position.protocol.name} size="sm" />
+                      <span className="chip capitalize">
+                        <StatusDot tone={position.status === "open" ? "ok" : "idle"} />
+                        {position.status}
+                      </span>
+                    </div>
+                  }
+                />
+                <div className="grid grid-cols-2 gap-4 px-5 py-4 sm:grid-cols-4">
+                  <Field label="Value" value={formatUsd(position.currentValueUsd)} />
+                  <Field
+                    label="Rate"
+                    value={snapshot ? formatPercent(snapshot.rateValue) : "—"}
+                    hint={snapshot?.rateType ?? undefined}
+                  />
+                  <Field
+                    label="Unrealised"
+                    value={formatUsdDelta(position.unrealisedPnlUsd)}
+                    tone={(position.unrealisedPnlUsd ?? 0) >= 0 ? "positive" : "negative"}
+                  />
+                  <Field label="Accrued" value={formatUsdDelta(position.accruedReturnUsd)} />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-5 py-3 text-xs text-ink-muted">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <ChainBadge chainId={position.chainId} />
+                    <span>Opened: {formatDateTime(position.openedAt)}</span>
+                    <span>Synced: {formatDateTime(position.lastSyncedAt)}</span>
+                  </div>
+                  {position.status === "open" ? (
+                    <PositionActions
+                      strategyType={position.strategyType}
+                      chainId={position.chainId}
+                      currentValueUsd={position.currentValueUsd}
+                      contractAddress={position.receiptToken?.contractAddress}
+                    />
+                  ) : null}
+                </div>
+              </Panel>
+            );
+          })}
         </div>
-      </Panel>
+      )}
     </div>
   );
 }
@@ -122,19 +133,20 @@ function Field({
   hint?: string;
   tone?: "default" | "positive" | "negative";
 }) {
-  const color =
+  const toneClass =
     tone === "positive"
       ? "text-accent-text"
       : tone === "negative"
         ? "text-danger-text"
         : "text-ink";
+
   return (
     <div>
       <p className="eyebrow">{label}</p>
-      <p className={`metric mt-1 text-sm font-medium ${color}`} data-numeric>
+      <p className={`metric mt-1 text-sm font-semibold ${toneClass}`} data-numeric>
         {value}
       </p>
-      {hint ? <p className="text-[10px] uppercase tracking-wide text-ink-muted">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-[10px] uppercase text-ink-faint">{hint}</p> : null}
     </div>
   );
 }
