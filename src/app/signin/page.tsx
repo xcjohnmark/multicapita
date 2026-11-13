@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { ArrowRight, Loader2, ShieldCheck, Wallet } from "lucide-react";
+import { Wordmark } from "@/components/shell/logo";
 import { Panel } from "@/components/ui/primitives";
 import { signInWithWallet } from "@/lib/wallet/sign-in";
 
@@ -35,18 +36,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <div className="mb-3 inline-flex items-center justify-center">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <circle
-                cx="12"
-                cy="12"
-                r="9"
-                stroke="#111827"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeDasharray="42 14"
-              />
-              <circle cx="17.5" cy="8" r="2.25" fill="#22C55E" />
-            </svg>
+            <Wordmark size="lg" />
           </div>
           <h1 className="type-h4 text-ink">Sign in to Capita</h1>
           <p className="mt-1 text-sm text-ink-muted">All your crypto. One place.</p>

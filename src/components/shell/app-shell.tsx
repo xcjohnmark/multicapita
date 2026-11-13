@@ -13,6 +13,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { Logo } from "@/components/shell/logo";
 import { SessionMenu } from "@/components/shell/session-menu";
 import { StatusDot } from "@/components/ui/primitives";
 import type { ShellSession } from "@/lib/shell-state";
@@ -45,10 +46,7 @@ export function AppShell({
     <div className="flex min-h-dvh flex-col bg-canvas lg:flex-row">
       <aside className="border-b border-line bg-canvas lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-[232px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex h-14 items-center justify-between px-4 lg:h-16 lg:px-5">
-          <Link href="/" className="flex items-center gap-2.5 rounded-lg outline-offset-4">
-            <LogoMark />
-            <span className="type-card-title tracking-tight text-ink">Capita</span>
-          </Link>
+          <Logo href="/" />
           <span className="lg:hidden">
             <ModeChip session={session} />
           </span>
@@ -164,19 +162,3 @@ function ModeChip({ session }: { session: ShellSession }) {
   );
 }
 
-function LogoMark() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0">
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="#111827"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="42 14"
-      />
-      <circle cx="17.5" cy="8" r="2.25" fill="#22C55E" />
-    </svg>
-  );
-}

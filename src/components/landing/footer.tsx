@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Wordmark } from "@/components/shell/logo";
 
 const PRODUCT_LINKS = [
   { href: "/app", label: "Overview" },
@@ -20,7 +21,9 @@ export function LandingFooter() {
       <div className="mx-auto max-w-[1120px] px-6 pt-16 md:px-10">
         <div className="grid gap-10 border-b border-line pb-12 md:grid-cols-12">
           <div className="md:col-span-6">
-            <p className="text-xl tracking-[-0.02em] text-ink">Capita</p>
+            <p>
+              <Wordmark />
+            </p>
             <p className="type-body-sm mt-3 max-w-sm text-ink-secondary">
               All your crypto. One place. A non-custodial cross-chain portfolio operator.
             </p>
@@ -52,7 +55,7 @@ export function LandingFooter() {
         </div>
 
         <p
-          className="pointer-events-none select-none pt-6 text-center text-[19vw] leading-[0.85] tracking-[-0.06em] text-line md:text-[17vw]"
+          className="pointer-events-none select-none pt-6 text-center font-logo text-[19vw] leading-[0.95] text-line md:text-[17vw]"
           aria-hidden
         >
           Capita

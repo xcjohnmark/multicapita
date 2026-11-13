@@ -1,16 +1,12 @@
 import Link from "next/link";
+import { Logo } from "@/components/shell/logo";
 
 /** Transparent over the hero landscape; logo left, section links centered, actions right. */
 export function LandingNavbar() {
   return (
     <header className="absolute inset-x-0 top-0 z-50 w-full">
       <div className="mx-auto flex h-20 max-w-[1200px] items-center justify-between px-6 md:px-10">
-        <Link href="/" className="flex items-center gap-2.5 text-white">
-          <span className="flex size-8 items-center justify-center rounded-[var(--radius-control)] border border-white/25 bg-white/10 text-sm font-medium">
-            C
-          </span>
-          <span className="text-xl tracking-[-0.02em]">Capita</span>
-        </Link>
+        <Logo href="/" tone="invert" />
 
         <nav className="hidden items-center gap-8 text-sm text-white/80 md:flex" aria-label="Sections">
           <Link href="#markets" className="hover:text-white">

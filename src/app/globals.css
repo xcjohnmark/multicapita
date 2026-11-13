@@ -53,6 +53,7 @@
     Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", "Cascadia Mono", Menlo,
     Consolas, monospace;
+  --font-logo: var(--font-manufacturing-consent), system-ui, serif;
 
   /* Radii (Nouva): cards 16, controls/insets 12, media inside a card 10 */
   --radius-control: 12px;

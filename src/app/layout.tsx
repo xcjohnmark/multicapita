@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Onest, JetBrains_Mono } from "next/font/google";
+import { Onest, JetBrains_Mono, Manufacturing_Consent } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/shell/app-shell";
 import { getShellSession } from "@/lib/shell-state";
@@ -17,6 +17,15 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600"],
   display: "swap",
   variable: "--font-jetbrains-mono",
+});
+
+// Brand wordmark only ("Capita" in the logo). Self-hosted by next/font, so no runtime request
+// to fonts.googleapis.com.
+const manufacturingConsent = Manufacturing_Consent({
+  subsets: ["latin"],
+  weight: "400",
+  display: "swap",
+  variable: "--font-manufacturing-consent",
 });
 
 export const metadata: Metadata = {
@@ -39,7 +48,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`h-full ${onest.variable} ${jetbrainsMono.variable} antialiased selection:bg-green-500 selection:text-black light`}
+      className={`h-full ${onest.variable} ${jetbrainsMono.variable} ${manufacturingConsent.variable} antialiased selection:bg-green-500 selection:text-black light`}
     >
       <body className="relative isolate min-h-full bg-canvas font-sans text-ink">
         <AppShell session={session}>{children}</AppShell>
