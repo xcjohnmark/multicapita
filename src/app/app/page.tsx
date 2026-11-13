@@ -93,6 +93,9 @@ export default async function OverviewPage() {
   }
 
   const { totals, positions, balances, allocation, observedAt, dataMode } = portfolio;
+  // Every tracked token is read on every chain, so most rows are zero. Show what is held.
+  const heldBalances = balances.filter((item) => item.amountDisplay > 0);
+  const emptyBalanceCount = balances.length - heldBalances.length;
 
   return (
     <div className="space-y-6">
@@ -353,8 +356,18 @@ export default async function OverviewPage() {
           <PanelHeader
             title="Wallet balances"
             eyebrow="Liquid assets"
-            meta={<span className="chip">{balances.length} asset{balances.length === 1 ? "" : "s"}</span>}
+            meta={
+              <span className="chip">
+                {heldBalances.length} held
+                {emptyBalanceCount > 0 ? ` · ${emptyBalanceCount} empty hidden` : ""}
+              </span>
+            }
           />
+          {heldBalances.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-ink-muted">
+              Every tracked token reads zero on Base and Arbitrum for the linked wallets.
+            </p>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
@@ -367,7 +380,7 @@ export default async function OverviewPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-faint">
-                {balances.map((item) => (
+                {heldBalances.map((item) => (
                   <tr
                     key={item.id}
                     className="transition-colors duration-100 hover:bg-surface-hover"
@@ -404,6 +417,7 @@ export default async function OverviewPage() {
               </tbody>
             </table>
           </div>
+          )}
         </Panel>
       ) : null}
 

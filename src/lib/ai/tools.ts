@@ -121,6 +121,8 @@ export async function executeTool(
           byProtocol: toUsd(portfolio.byProtocol),
           byStrategy: toUsd(portfolio.byStrategy),
           byAsset: toUsd(portfolio.byAsset),
+          // A leg can only be funded by the asset it deposits (no swaps are planned).
+          availableByAssetUsd: toUsd(portfolio.availableByAsset),
         },
       };
     }

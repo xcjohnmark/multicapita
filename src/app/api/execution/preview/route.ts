@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getChain } from "@/lib/chains";
+import { getPrisma } from "@/lib/db/client";
 import { getViewer, viewerOwnsAddress } from "@/lib/auth/viewer";
 import { loadGuardrails, moveBodySchema } from "@/lib/execution/api";
 import { loadExecutionLimits } from "@/lib/execution/limits";
@@ -60,12 +61,25 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!viewerOwnsAddress(viewer, parsed.data.walletAddress)) {
+  // A preview is a dry quote plus public balances: nothing is signed or persisted. It may read any
+  // wallet the viewer has linked (including watch-only imports); preparing a move still requires
+  // the signed-in wallet itself.
+  const linked =
+    viewerOwnsAddress(viewer, parsed.data.walletAddress) ||
+    (await getPrisma().wallet.findFirst({
+      where: {
+        userId: viewer.userId,
+        chainFamily: "evm",
+        address: parsed.data.walletAddress.toLowerCase(),
+      },
+      select: { id: true },
+    })) !== null;
+  if (!linked) {
     return NextResponse.json(
       {
         error: {
           message:
-            "The connected wallet is not the wallet this session signed in with. Sign in again with the wallet you intend to move funds from.",
+            "This address is not linked to your account. Sign in with it, or import it on the Overview page to preview moves from it.",
         },
       },
       { status: 403 },

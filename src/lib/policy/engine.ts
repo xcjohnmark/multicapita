@@ -47,6 +47,11 @@ export type OpportunityView = {
 export type PortfolioExposure = {
   totalUsdCents: bigint;
   availableUsdCents: bigint;
+  /**
+   * Undeployed wallet value per asset symbol. A leg is funded only by the asset it deposits: a
+   * USDC lending leg cannot be paid for with ETH, because nothing in the plan swaps ETH.
+   */
+  availableByAsset: Record<string, bigint>;
   byChain: Record<string, bigint>;
   byProtocol: Record<string, bigint>;
   byStrategy: Record<string, bigint>;
@@ -199,6 +204,23 @@ export function evaluateProposal(input: PolicyInput): PolicyEvaluation {
     });
   }
 
+  // ---- Funding per asset ----
+  const requiredByAsset: Record<string, bigint> = {};
+  resolved.forEach(({ opportunity }, index) => {
+    requiredByAsset[opportunity.assetKey] =
+      (requiredByAsset[opportunity.assetKey] ?? 0n) + (amounts[index] ?? 0n);
+  });
+  for (const [asset, required] of Object.entries(requiredByAsset)) {
+    const held = portfolio.availableByAsset[asset] ?? 0n;
+    if (required > held) {
+      error({
+        code: "insufficient_available_balance",
+        message: `Plan deploys ${centsToUsd(required).toFixed(2)} USD of ${asset} but the wallets hold ${centsToUsd(held).toFixed(2)} USD of ${asset}.`,
+        context: { asset, requiredUsd: centsToUsd(required), availableUsd: centsToUsd(held) },
+      });
+    }
+  }
+
   // ---- Concentration ----
   const chainTotals = { ...portfolio.byChain };
   const protocolTotals = { ...portfolio.byProtocol };
@@ -280,6 +302,7 @@ export function evaluateProposal(input: PolicyInput): PolicyEvaluation {
     label: "protocol" | "asset" | "chain" | "strategy",
     key: string,
     totals: Record<string, bigint>,
+    before: Record<string, bigint>,
     limitPercent: number,
     code: Violation["code"],
   ) => {
@@ -288,29 +311,41 @@ export function evaluateProposal(input: PolicyInput): PolicyEvaluation {
     if (limitPercent >= 100) return;
     const value = totals[key] ?? 0n;
     const actual = pct(value, total);
-    if (actual > limitPercent + 1e-9) {
-      error({
+    if (actual <= limitPercent + 1e-9) return;
+
+    const existing = before[key] ?? 0n;
+    // The holdings were already over the cap before this plan, and the plan adds nothing to that
+    // bucket. Blocking would refuse every plan for a wallet that is, say, mostly ETH; the plan
+    // does not make the breach worse, so it is reported, not enforced. Adding to it is an error.
+    if (value <= existing) {
+      warn({
         code,
-        message: `${label} "${key}" would be ${actual.toFixed(1)}% of the portfolio, above the ${limitPercent}% cap.`,
-        context: { [label]: key, actual, limit: limitPercent },
+        message: `${label} "${key}" is already ${actual.toFixed(1)}% of the portfolio, above the ${limitPercent}% cap, before this plan. The plan does not add to it.`,
+        context: { [label]: key, actual, limit: limitPercent, preexisting: true },
       });
+      return;
     }
+    error({
+      code,
+      message: `${label} "${key}" would be ${actual.toFixed(1)}% of the portfolio, above the ${limitPercent}% cap.`,
+      context: { [label]: key, actual, limit: limitPercent },
+    });
   };
 
   for (const key of new Set([
     ...Object.keys(protocolTotals),
     ...legs.map((l) => l.protocolSlug),
   ])) {
-    checkCap("protocol", key, protocolTotals, guardrails.maxProtocolExposurePercent, "exposure_protocol_exceeded");
+    checkCap("protocol", key, protocolTotals, portfolio.byProtocol, guardrails.maxProtocolExposurePercent, "exposure_protocol_exceeded");
   }
   for (const key of new Set([...Object.keys(assetTotals), ...legs.map((l) => l.asset)])) {
-    checkCap("asset", key, assetTotals, guardrails.maxAssetExposurePercent, "exposure_asset_exceeded");
+    checkCap("asset", key, assetTotals, portfolio.byAsset, guardrails.maxAssetExposurePercent, "exposure_asset_exceeded");
   }
   for (const key of new Set([...Object.keys(chainTotals), ...legs.map((l) => String(l.chainId))])) {
-    checkCap("chain", key, chainTotals, guardrails.maxChainExposurePercent, "exposure_chain_exceeded");
+    checkCap("chain", key, chainTotals, portfolio.byChain, guardrails.maxChainExposurePercent, "exposure_chain_exceeded");
   }
   for (const key of new Set([...Object.keys(strategyTotals), ...legs.map((l) => l.strategyType)])) {
-    checkCap("strategy", key, strategyTotals, guardrails.maxStrategyExposurePercent, "exposure_strategy_exceeded");
+    checkCap("strategy", key, strategyTotals, portfolio.byStrategy, guardrails.maxStrategyExposurePercent, "exposure_strategy_exceeded");
   }
 
   if (guardrails.requiresUserApproval) {

@@ -107,6 +107,7 @@ export function buildExposure(input: {
   const byProtocol: Record<string, bigint> = {};
   const byStrategy: Record<string, bigint> = {};
   const byAsset: Record<string, bigint> = {};
+  const availableByAsset: Record<string, bigint> = {};
 
   let availableCents = 0n;
 
@@ -115,6 +116,7 @@ export function buildExposure(input: {
     availableCents += cents;
     add(byChain, String(balance.token.chainId), cents);
     add(byAsset, balance.token.symbol, cents);
+    add(availableByAsset, balance.token.symbol, cents);
   }
 
   let deployedCents = 0n;
@@ -133,6 +135,7 @@ export function buildExposure(input: {
   return {
     totalUsdCents: availableCents + deployedCents,
     availableUsdCents: availableCents,
+    availableByAsset,
     byChain,
     byProtocol,
     byStrategy,

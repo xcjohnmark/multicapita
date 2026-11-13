@@ -32,9 +32,12 @@ function opportunity(overrides: Partial<OpportunityView> = {}): OpportunityView 
 
 /** $10,000 portfolio, $8,000 liquid, nothing deployed yet. */
 function portfolio(overrides: Partial<PortfolioExposure> = {}): PortfolioExposure {
+  // Unless a test says otherwise, the wallets hold every test asset up to the available balance.
+  const available = overrides.availableUsdCents ?? 800_000n;
   return {
     totalUsdCents: 1_000_000n,
-    availableUsdCents: 800_000n,
+    availableUsdCents: available,
+    availableByAsset: { USDC: available, "USDC-vault": available, "USDC/USDT": available },
     byChain: {},
     byProtocol: {},
     byStrategy: {},
@@ -246,6 +249,42 @@ describe("evaluateProposal — rejected plans", () => {
         (v) => v.code === "exposure_protocol_exceeded" && v.context?.protocol === "aave-v3",
       ),
     ).toBe(true);
+  });
+
+  it("funds each leg only from the asset it deposits, not from total wallet value", () => {
+    // $8,000 is liquid, but only $1,000 of it is USDC (the rest is, say, ETH).
+    const result = evaluate(proposal(["aave-base", 5000], ["earn-base", 5000]), {
+      portfolio: portfolio({
+        availableByAsset: { USDC: 100_000n, "USDC-vault": 800_000n },
+      }),
+      guardrails: { ...guardrails, maxProtocolExposurePercent: 100, maxChainExposurePercent: 100, maxStrategyExposurePercent: 100, maxAssetExposurePercent: 100 },
+    });
+    expect(result.ok).toBe(false);
+    const violation = result.violations.find((v) => v.code === "insufficient_available_balance");
+    expect(violation?.severity).toBe("error");
+    expect(violation?.context).toMatchObject({ asset: "USDC", requiredUsd: 3500, availableUsd: 1000 });
+  });
+
+  it("reports, without blocking, a cap breach that predates the plan and is not added to", () => {
+    const result = evaluate(proposal(["uni-arb", 10_000]), {
+      portfolio: portfolio({ byChain: { "1": 900_000n } }), // 90% already on Ethereum
+      guardrails: { ...guardrails, maxProtocolExposurePercent: 100, maxChainExposurePercent: 80, maxStrategyExposurePercent: 100, maxAssetExposurePercent: 100 },
+    });
+    expect(result.ok).toBe(true);
+    const violation = result.violations.find((v) => v.code === "exposure_chain_exceeded");
+    expect(violation?.severity).toBe("warning");
+    expect(violation?.context).toMatchObject({ chain: "1", preexisting: true });
+  });
+
+  it("rejects a plan that adds to a bucket already above its cap", () => {
+    const result = evaluate(proposal(["uni-arb", 10_000]), {
+      portfolio: portfolio({ byChain: { "42161": 900_000n } }), // Arbitrum already at 90%
+      guardrails: { ...guardrails, maxProtocolExposurePercent: 100, maxChainExposurePercent: 80, maxStrategyExposurePercent: 100, maxAssetExposurePercent: 100 },
+    });
+    expect(result.ok).toBe(false);
+    const violation = result.violations.find((v) => v.code === "exposure_chain_exceeded");
+    expect(violation?.severity).toBe("error");
+    expect(violation?.context?.preexisting).toBeUndefined();
   });
 
   it("rejects deploying more than the available balance", () => {

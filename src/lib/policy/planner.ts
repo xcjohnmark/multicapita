@@ -105,6 +105,7 @@ export function planDeterministicAllocation(input: {
   const protocolTotals = { ...portfolio.byProtocol };
   const strategyTotals = { ...portfolio.byStrategy };
   const assetTotals = { ...portfolio.byAsset };
+  const fundingRemaining = { ...portfolio.availableByAsset };
 
   let remaining = deployableCents > portfolio.availableUsdCents
     ? portfolio.availableUsdCents
@@ -132,6 +133,8 @@ export function planDeterministicAllocation(input: {
       capRemaining(chainTotals[chainKey], guardrails.maxChainExposurePercent),
       capRemaining(strategyTotals[opportunity.strategyType], guardrails.maxStrategyExposurePercent),
       capRemaining(assetTotals[opportunity.assetKey], guardrails.maxAssetExposurePercent),
+      // Only the deposited asset can fund the leg; the same safety margin absorbs re-rounding.
+      ((fundingRemaining[opportunity.assetKey] ?? 0n) * CAP_SAFETY_BPS) / 10_000n,
     ];
 
     if (opportunity.liquidityUsd && opportunity.liquidityUsd > 0) {
@@ -144,7 +147,10 @@ export function planDeterministicAllocation(input: {
     if (amount < MIN_LEG_CENTS) {
       rejected.push({
         opportunityId: opportunity.id,
-        reason: "headroom below the minimum leg size after applying exposure caps",
+        reason:
+          (fundingRemaining[opportunity.assetKey] ?? 0n) < MIN_LEG_CENTS
+            ? `not enough ${opportunity.assetKey} in the wallets to fund a leg`
+            : "headroom below the minimum leg size after applying exposure caps",
       });
       continue;
     }
@@ -158,6 +164,7 @@ export function planDeterministicAllocation(input: {
     strategyTotals[opportunity.strategyType] =
       (strategyTotals[opportunity.strategyType] ?? 0n) + amount;
     assetTotals[opportunity.assetKey] = (assetTotals[opportunity.assetKey] ?? 0n) + amount;
+    fundingRemaining[opportunity.assetKey] = (fundingRemaining[opportunity.assetKey] ?? 0n) - amount;
   }
 
   if (picks.length === 0) {

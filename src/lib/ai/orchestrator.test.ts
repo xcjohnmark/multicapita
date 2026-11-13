@@ -44,6 +44,7 @@ const OPPORTUNITIES: OpportunityView[] = [
 const PORTFOLIO: PortfolioExposure = {
   totalUsdCents: 1_000_000n,
   availableUsdCents: 800_000n,
+  availableByAsset: { USDC: 800_000n, "USDC-vault": 800_000n },
   byChain: {},
   byProtocol: {},
   byStrategy: {},

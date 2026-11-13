@@ -28,9 +28,12 @@ function opportunity(overrides: Partial<OpportunityView> = {}): OpportunityView 
 }
 
 function portfolio(overrides: Partial<PortfolioExposure> = {}): PortfolioExposure {
+  // Unless a test says otherwise, the wallets hold every test asset up to the available balance.
+  const available = overrides.availableUsdCents ?? 800_000n;
   return {
     totalUsdCents: 1_000_000n, // $10,000
-    availableUsdCents: 800_000n,
+    availableUsdCents: available,
+    availableByAsset: { USDC: available, "USDC-vault": available, "USDC/USDT": available },
     byChain: {},
     byProtocol: {},
     byStrategy: {},
@@ -203,6 +206,29 @@ describe("planDeterministicAllocation", () => {
     });
 
     expect(evaluation.totals.allocatedUsd).toBeLessThanOrEqual(500);
+  });
+
+  it("sizes legs to the deposited asset the wallets hold, not to total wallet value", () => {
+    // $8,000 liquid, but only $200 of it is USDC and none is the vault's deposit asset.
+    const funded = portfolio({ availableByAsset: { USDC: 20_000n } });
+    const open = { ...guardrails, maxProtocolExposurePercent: 100, maxChainExposurePercent: 100, maxStrategyExposurePercent: 100, maxAssetExposurePercent: 100 };
+    const result = plan([AAVE, EARN], { portfolio: funded, guardrails: open });
+
+    expect(result.rejected).toContainEqual({
+      opportunityId: EARN.id,
+      reason: `not enough ${EARN.assetKey} in the wallets to fund a leg`,
+    });
+
+    const evaluation = evaluateProposal({
+      proposal: result.proposal,
+      guardrails: open,
+      opportunities: [AAVE, EARN],
+      portfolio: funded,
+      now: NOW,
+    });
+    expect(evaluation.ok).toBe(true);
+    expect(evaluation.totals.allocatedUsd).toBeGreaterThan(0);
+    expect(evaluation.totals.allocatedUsd).toBeLessThanOrEqual(200);
   });
 
   it("plans an arbitrage opportunity when executable net profit is established", () => {
