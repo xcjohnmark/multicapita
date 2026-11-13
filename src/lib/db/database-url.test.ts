@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { LOCAL_DATABASE_URL, resolveDatabaseUrl, resolveMigrationUrl } from "./database-url";
+import {
+  LOCAL_DATABASE_URL,
+  resolveDatabaseUrl,
+  resolveMigrationUrl,
+  withVerifiedSsl,
+} from "./database-url";
+
+describe("withVerifiedSsl", () => {
+  it("pins weaker-in-future sslmodes to verify-full", () => {
+    expect(withVerifiedSsl("postgres://u:p@h/db?sslmode=require")).toBe(
+      "postgres://u:p@h/db?sslmode=verify-full",
+    );
+    expect(withVerifiedSsl("postgres://u:p@h/db?channel_binding=require&sslmode=prefer&x=1")).toBe(
+      "postgres://u:p@h/db?channel_binding=require&sslmode=verify-full&x=1",
+    );
+  });
+
+  it("leaves URLs without a weak sslmode untouched", () => {
+    expect(withVerifiedSsl(LOCAL_DATABASE_URL)).toBe(LOCAL_DATABASE_URL);
+    expect(withVerifiedSsl("postgres://h/db?sslmode=disable")).toBe("postgres://h/db?sslmode=disable");
+    expect(withVerifiedSsl("postgres://h/db?sslmode=verify-full")).toBe(
+      "postgres://h/db?sslmode=verify-full",
+    );
+  });
+});
 
 describe("database URL resolution", () => {
   it("defaults to the local Docker database", () => {

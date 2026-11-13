@@ -20,6 +20,16 @@ export function resolveDatabaseUrl(env: Env = process.env): string {
   return present(env.DATABASE_URL) ?? present(env.NEON_MCAP_DATABASE_URL) ?? LOCAL_DATABASE_URL;
 }
 
+/**
+ * node-postgres currently treats `sslmode=require|prefer|verify-ca` as `verify-full` and warns that
+ * pg v9 will switch them to weaker libpq semantics. Neon URLs carry `sslmode=require`; pinning
+ * `verify-full` keeps today's certificate verification and silences the per-cold-start warning.
+ * Only for the runtime node-postgres client — Prisma's migration engine parses URLs itself.
+ */
+export function withVerifiedSsl(url: string): string {
+  return url.replace(/([?&]sslmode=)(require|prefer|verify-ca)(?=&|$)/, "$1verify-full");
+}
+
 /** Direct (unpooled) URL for migrations; falls back to the pooled URL, which is direct locally. */
 export function resolveMigrationUrl(env: Env = process.env): string {
   return (

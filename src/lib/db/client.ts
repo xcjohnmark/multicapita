@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { env } from "@/lib/env";
+import { withVerifiedSsl } from "./database-url";
 
 /**
  * Prisma 7 requires a driver adapter. PostgreSQL via node-postgres: Neon in production (pooled
@@ -14,7 +15,7 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export function getPrisma(): PrismaClient {
   if (!globalForPrisma.prisma) {
-    const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+    const adapter = new PrismaPg({ connectionString: withVerifiedSsl(env.DATABASE_URL) });
     globalForPrisma.prisma = new PrismaClient({ adapter });
   }
   return globalForPrisma.prisma;
