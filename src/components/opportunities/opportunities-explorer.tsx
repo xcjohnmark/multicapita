@@ -324,7 +324,11 @@ export function OpportunitiesExplorer({
                                     : "—"
                                   : formatPercent(row.estimatedApy)}
                             </span>
-                            <span className="ml-1 text-xs uppercase text-ink-muted">
+                            <span
+                              className={`text-xs uppercase text-ink-muted ${
+                                isEquity ? "block whitespace-nowrap" : "ml-1"
+                              }`}
+                            >
                               {isArb
                                 ? "net est."
                                 : isEquity
@@ -359,7 +363,14 @@ export function OpportunitiesExplorer({
                             </div>
                           </td>
                           <td className="min-w-[6.5rem] px-4 py-3 text-right text-xs leading-relaxed text-ink-muted">
-                            {formatDateTime(row.observedAtIso)}
+                            {/* Date and time on their own lines instead of wrapping word by word. */}
+                            {formatDateTime(row.observedAtIso)
+                              .split(", ")
+                              .map((part) => (
+                                <span key={part} className="block whitespace-nowrap">
+                                  {part}
+                                </span>
+                              ))}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Link

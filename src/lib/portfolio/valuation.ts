@@ -152,11 +152,11 @@ export function aggregateValuations(
 }
 
 // In-memory price cache (TTL = 30s)
-type PriceCacheEntry = {
-  prices: Map<string, PricePoint>;
-  cachedAt: number;
-};
-let globalPriceCache: PriceCacheEntry | null = null;
+/**
+ * Per-coin cache. A single shared map was wrong: the health check caches only stablecoins, and a
+ * balance sync inside the TTL then got that map back and reported ETH as unpriced.
+ */
+const priceCache = new Map<string, { point: PricePoint; cachedAt: number }>();
 const CACHE_TTL_MS = 30_000;
 
 /**
@@ -166,13 +166,15 @@ export async function fetchSpotPrices(
   coingeckoIds: string[],
 ): Promise<Map<string, PricePoint>> {
   const now = Date.now();
-  if (globalPriceCache && now - globalPriceCache.cachedAt < CACHE_TTL_MS) {
-    return globalPriceCache.prices;
-  }
-
-  const uniqueIds = Array.from(new Set(coingeckoIds)).filter(Boolean);
+  const requested = Array.from(new Set(coingeckoIds)).filter(Boolean);
   const result = new Map<string, PricePoint>();
 
+  for (const id of requested) {
+    const cached = priceCache.get(id);
+    if (cached && now - cached.cachedAt < CACHE_TTL_MS) result.set(id, cached.point);
+  }
+
+  const uniqueIds = requested.filter((id) => !result.has(id));
   if (uniqueIds.length === 0) {
     return result;
   }
@@ -238,12 +240,9 @@ export async function fetchSpotPrices(
     }
   }
 
-  // If we fetched any prices, update cache
-  if (result.size > 0) {
-    globalPriceCache = {
-      prices: result,
-      cachedAt: now,
-    };
+  for (const id of uniqueIds) {
+    const point = result.get(id);
+    if (point) priceCache.set(id, { point, cachedAt: now });
   }
 
   return result;
@@ -251,5 +250,5 @@ export async function fetchSpotPrices(
 
 /** Clear price cache for tests */
 export function clearPriceCacheForTests(): void {
-  globalPriceCache = null;
+  priceCache.clear();
 }

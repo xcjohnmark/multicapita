@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   aggregateValuations,
   calculateTokenValuation,
+  clearPriceCacheForTests,
+  fetchSpotPrices,
   isStablecoinDepegged,
   type PricePoint,
   type RawBalanceInput,
@@ -171,5 +173,44 @@ describe("aggregateValuations", () => {
     const agg = aggregateValuations(valuations);
     expect(agg.totalValueUsd).toBe(100.0);
     expect(agg.dataQualityStatus).toBe("partial");
+  });
+});
+
+describe("fetchSpotPrices cache", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    clearPriceCacheForTests();
+  });
+
+  function stubLlama(prices: Record<string, number>) {
+    const fetchMock = vi.fn(async (url: string) => {
+      const ids = decodeURIComponent(url.split("/prices/current/")[1] ?? "")
+        .split(",")
+        .map((c) => c.replace("coingecko:", ""));
+      const coins = Object.fromEntries(
+        ids
+          .filter((id) => id in prices)
+          .map((id) => [`coingecko:${id}`, { price: prices[id], timestamp: 1_800_000_000 }]),
+      );
+      return new Response(JSON.stringify({ coins }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("prices coins a previous call did not ask for, inside the cache TTL", async () => {
+    const fetchMock = stubLlama({ "usd-coin": 1, tether: 1, ethereum: 3000 });
+
+    // The health check asks for stablecoins only…
+    await fetchSpotPrices(["usd-coin", "tether"]);
+    // …and a balance sync moments later must still get ETH.
+    const prices = await fetchSpotPrices(["usd-coin", "ethereum"]);
+
+    expect(prices.get("ethereum")?.priceUsd).toBe(3000);
+    expect(prices.get("usd-coin")?.priceUsd).toBe(1);
+    // usd-coin came from the cache; only ethereum was fetched the second time.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("coingecko:ethereum");
+    expect(String(fetchMock.mock.calls[1]?.[0])).not.toContain("usd-coin");
   });
 });
