@@ -20,9 +20,10 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-xs",
-  md: "h-9 px-3.5 text-sm",
-  lg: "h-11 px-5 text-sm",
+  sm: "h-8 px-3 text-[13px]",
+  md: "h-10 px-4 text-sm",
+  // Marketing / primary actions: Nouva "Button Text" 15px / 500.
+  lg: "h-12 px-6 text-[15px]",
   icon: "size-9 p-0 [&_svg:not([class*='size-'])]:size-5",
 };
 

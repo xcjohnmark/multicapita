@@ -32,19 +32,19 @@ export default async function PositionsPage() {
       <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Management</p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">Positions</h1>
+          <h1 className="mt-1 type-h4 text-ink">Positions</h1>
         </div>
         <div className="flex flex-wrap items-center gap-6 text-sm">
           <div>
             <p className="eyebrow">Deployed</p>
-            <p className="metric mt-1 font-semibold text-ink" data-numeric>
+            <p className="metric mt-1 font-medium text-ink" data-numeric>
               {formatUsd(deployed)}
             </p>
           </div>
           <div>
             <p className="eyebrow">Unrealised</p>
             <p
-              className={`metric mt-1 font-semibold ${
+              className={`metric mt-1 font-medium ${
                 pnl >= 0 ? "text-accent-text" : "text-danger-text"
               }`}
               data-numeric
@@ -143,10 +143,10 @@ function Field({
   return (
     <div>
       <p className="eyebrow">{label}</p>
-      <p className={`metric mt-1 text-sm font-semibold ${toneClass}`} data-numeric>
+      <p className={`metric mt-1 text-sm font-medium ${toneClass}`} data-numeric>
         {value}
       </p>
-      {hint ? <p className="mt-0.5 text-[10px] uppercase text-ink-faint">{hint}</p> : null}
+      {hint ? <p className="mt-0.5 text-xs uppercase text-ink-faint">{hint}</p> : null}
     </div>
   );
 }

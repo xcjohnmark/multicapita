@@ -165,7 +165,7 @@ export function SessionMenu({ session }: { session: ShellSession }) {
 
           {session.authenticated && session.address ? (
             <div className="space-y-3 px-3.5 py-3">
-              <p className="rounded-lg border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px] break-all text-ink-secondary">
+              <p className="rounded-lg border border-line bg-surface px-2.5 py-1.5 font-mono text-xs break-all text-ink-secondary">
                 {session.address}
               </p>
 
@@ -177,13 +177,13 @@ export function SessionMenu({ session }: { session: ShellSession }) {
                 <div key={chain.chainId} className="space-y-1">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-ink">{chain.chainName}</p>
-                    <span className="text-[11px] text-ink-faint">
+                    <span className="text-xs text-ink-faint">
                       {chain.blockNumber ? `block ${chain.blockNumber}` : "no block"}
                     </span>
                   </div>
 
                   {chain.error ? (
-                    <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[11px] text-amber-800">
+                    <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-xs text-amber-800">
                       RPC read failed: {chain.error}
                     </p>
                   ) : (
@@ -209,7 +209,7 @@ export function SessionMenu({ session }: { session: ShellSession }) {
                 </div>
               ))}
 
-              <p className="border-t border-line pt-2.5 text-[11px] leading-relaxed text-ink-faint">
+              <p className="border-t border-line pt-2.5 text-xs leading-relaxed text-ink-faint">
                 Read directly from public RPC. No USD value is attached when no verified price
                 source is used. Signing out revokes this session.
               </p>

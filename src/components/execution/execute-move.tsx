@@ -329,7 +329,7 @@ export function ExecuteMove() {
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Move</p>
-              <h2 className="text-base font-medium tracking-tight text-ink">
+              <h2 className="type-card-title text-ink">
                 Cross-chain USDC move
               </h2>
             </div>
@@ -356,7 +356,7 @@ export function ExecuteMove() {
           <div className="space-y-4 px-5 py-4">
             {copySymbol ? (
               <div className="rounded-lg border border-blue-200 bg-blue-50/70 px-3.5 py-2.5 text-xs text-ink">
-                <span className="font-semibold text-blue-800">Copytrade Staged:</span> Mirroring{" "}
+                <span className="font-medium text-blue-800">Copytrade Staged:</span> Mirroring{" "}
                 <strong className="font-mono">{copySymbol}</strong>
                 {copyChain ? ` (target chain ${copyChain})` : ""}. Review guardrail check below and
                 request a committed quote when ready.
@@ -444,7 +444,7 @@ export function ExecuteMove() {
             role="alert"
             className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-ink"
           >
-            <span className="font-semibold text-danger-text">Failed. </span>
+            <span className="font-medium text-danger-text">Failed. </span>
             {error}
           </div>
         ) : null}
@@ -454,7 +454,7 @@ export function ExecuteMove() {
             <div className="panel-header">
               <div>
                 <p className="eyebrow mb-1">Preview</p>
-                <h2 className="text-base font-medium tracking-tight text-ink">
+                <h2 className="type-card-title text-ink">
                   Dry quote and live balances
                 </h2>
               </div>
@@ -497,7 +497,7 @@ export function ExecuteMove() {
                         <StatusDot tone={violation.severity === "error" ? "error" : "warn"} />
                       </span>
                       <span className="text-ink-secondary">
-                        <span className="font-mono text-[10px] uppercase text-ink-muted">
+                        <span className="font-mono text-xs uppercase text-ink-muted">
                           {violation.code}
                         </span>{" "}
                         {violation.message}
@@ -533,7 +533,7 @@ export function ExecuteMove() {
               </button>
             </div>
 
-            <p className="border-t border-line bg-surface px-5 py-3 text-[11px] text-ink-muted">
+            <p className="border-t border-line bg-surface px-5 py-3 text-xs text-ink-muted">
               Read from a 1Click dry quote and live RPC balances. No funds move in this step.
             </p>
           </section>
@@ -545,7 +545,7 @@ export function ExecuteMove() {
               <div className="panel-header">
                 <div>
                   <p className="eyebrow mb-1">Prepared</p>
-                  <h2 className="text-base font-medium tracking-tight text-ink">
+                  <h2 className="type-card-title text-ink">
                     Deposit instruction
                   </h2>
                 </div>
@@ -628,7 +628,7 @@ export function ExecuteMove() {
                       href={`${prepared.instruction.explorerUrl}/tx/${txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-blue-600 hover:underline break-all"
+                      className="mt-1 inline-flex items-center gap-1 font-mono text-xs text-blue-600 hover:underline break-all"
                     >
                       {txHash} ↗
                     </a>
@@ -639,7 +639,7 @@ export function ExecuteMove() {
                   <div className="rounded-lg border border-line bg-surface px-3.5 py-2.5 text-xs">
                     <div className="flex items-center justify-between">
                       <p className="font-medium text-ink">
-                        Status: <span className="font-mono font-semibold">{status.status}</span>
+                        Status: <span className="font-mono font-medium">{status.status}</span>
                         {status.isTerminal ? " (settled)" : " (in progress)"}
                       </p>
                       <StatusDot
@@ -656,7 +656,7 @@ export function ExecuteMove() {
                     {status.status === "SUCCESS" ? (
                       <div className="mt-2 text-green-700 bg-green-50 p-2 rounded border border-green-200">
                         <p className="font-medium">Cross-chain move completed successfully.</p>
-                        <p className="mt-0.5 text-[11px]">
+                        <p className="mt-0.5 text-xs">
                           Funds delivered to destination address{" "}
                           <span className="font-mono">{shortenMiddle(walletAddress, 6, 4)}</span> on{" "}
                           {direction === "base-to-arb" ? "Arbitrum" : "Base"}.
@@ -669,24 +669,24 @@ export function ExecuteMove() {
                           }
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-1 inline-block text-[11px] text-blue-600 hover:underline font-medium"
+                          className="mt-1 inline-block text-xs text-blue-600 hover:underline font-medium"
                         >
                           View destination balance on{" "}
                           {direction === "base-to-arb" ? "Arbiscan" : "BaseScan"} ↗
                         </a>
                       </div>
                     ) : null}
-                    <p className="mt-2 text-[11px] text-ink-muted">
+                    <p className="mt-2 text-xs text-ink-muted">
                       Expected flow: PENDING_DEPOSIT → KNOWN_DEPOSIT_TX → PROCESSING → SUCCESS
                     </p>
                     {status.updatedAt ? (
-                      <p className="mt-1 text-[11px] text-ink-muted">Updated {status.updatedAt}</p>
+                      <p className="mt-1 text-xs text-ink-muted">Updated {status.updatedAt}</p>
                     ) : null}
                   </div>
                 ) : null}
               </div>
 
-              <p className="border-t border-line bg-surface px-5 py-3 text-[11px] text-ink-muted">
+              <p className="border-t border-line bg-surface px-5 py-3 text-xs text-ink-muted">
                 Committed quotes expire. If the deposit does not arrive in time the quote is
                 abandoned and nothing moves.
               </p>
@@ -696,7 +696,7 @@ export function ExecuteMove() {
               <div className="panel-header">
                 <div>
                   <p className="eyebrow mb-1">Refused</p>
-                  <h2 className="text-base font-medium tracking-tight text-ink">
+                  <h2 className="type-card-title text-ink">
                     Execution was not prepared
                   </h2>
                 </div>
@@ -713,7 +713,7 @@ export function ExecuteMove() {
                         <StatusDot tone={violation.severity === "error" ? "error" : "warn"} />
                       </span>
                       <span>
-                        <span className="font-mono text-[10px] uppercase text-ink-muted">
+                        <span className="font-mono text-xs uppercase text-ink-muted">
                           {violation.code}
                         </span>{" "}
                         {violation.message}
@@ -732,7 +732,7 @@ export function ExecuteMove() {
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Gate</p>
-              <h2 className="text-base font-medium tracking-tight text-ink">
+              <h2 className="type-card-title text-ink">
                 What execution requires
               </h2>
             </div>
@@ -762,7 +762,7 @@ export function ExecuteMove() {
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Why the preview is honest</p>
-              <h2 className="text-base font-medium tracking-tight text-ink">Data provenance</h2>
+              <h2 className="type-card-title text-ink">Data provenance</h2>
             </div>
           </div>
           <p className="px-5 py-4 text-xs leading-relaxed text-ink-muted">
@@ -820,7 +820,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function Step({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-[11px] font-medium text-ink-secondary">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-xs font-medium text-ink-secondary">
         {n}
       </span>
       <span>

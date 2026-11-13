@@ -1,70 +1,59 @@
-import { Lock, Cpu, Eye, ShieldAlert, Sparkles, Scale } from "lucide-react";
-import { NearLogo } from "@/components/landing/token-logos";
+import { BadgeCheck, Calculator, KeyRound, ListChecks, Link2, Timer } from "lucide-react";
 
-const PILLARS = [
+const BENEFITS = [
   {
-    icon: Lock,
-    title: "Self-custodial",
-    desc: "Capita never holds your keys or funds. Every transaction requires your wallet signature.",
+    icon: KeyRound,
+    title: "Your keys stay yours",
+    body: "Capita never sees a seed phrase or private key. Every transaction is signed in your own wallet.",
   },
   {
-    icon: ShieldAlert,
-    title: "User-defined guardrails",
-    desc: "Set hard rules on max allocation per protocol, slippage limits, and minimum liquidity reserves.",
+    icon: Calculator,
+    title: "AI proposes, code decides",
+    body: "The model ranks and explains. Every amount that reaches a signature is computed by tested code.",
   },
   {
-    icon: Eye,
-    title: "Clear quote pricing",
-    desc: "Every rate shows its source and timestamp. No hidden bridge spreads or surprise fees.",
+    icon: BadgeCheck,
+    title: "Every number has a source",
+    body: "Rates, prices and balances carry their provider and observation time. Sample data is labelled.",
   },
   {
-    icon: Scale,
-    title: "Direct verification",
-    desc: "All figures and trade limits are calculated deterministically before reaching your wallet.",
+    icon: ListChecks,
+    title: "Limits you set",
+    body: "Liquid reserve, protocol, chain and RWA caps, slippage and price-spread bounds block a plan before you sign.",
+  },
+  {
+    icon: Link2,
+    title: "No hidden atomicity",
+    body: "A cross-chain move settles one leg. Multi-step strategies show each leg and its confirmation.",
+  },
+  {
+    icon: Timer,
+    title: "Fresh quotes only",
+    body: "A displayed rate is research. Execution needs a fresh 1Click quote that hasn't expired.",
   },
 ];
 
 export function SecuritySection() {
   return (
-    <section id="security" className="py-20 md:py-28 bg-surface border-b border-line">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Header */}
-        <div className="max-w-2xl mx-auto text-center space-y-3">
-          <p className="eyebrow">Security</p>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
-            Built for safety and transparency
-          </h2>
-          <p className="text-sm sm:text-base text-ink-secondary leading-relaxed">
-            Your keys stay in your wallet, and you retain control over every deposit and withdrawal.
+    <section id="security" className="section border-t border-line bg-surface">
+      <div className="mx-auto max-w-[1120px]">
+        <div className="section-head">
+          <p className="eyebrow">Safety</p>
+          <h2 className="type-h2 text-ink">Built so an AI can&apos;t spend freely</h2>
+          <p className="type-body-lg text-ink-secondary">
+            The rules below are enforced in code and covered by tests, not just promised.
           </p>
         </div>
 
-        {/* 4 Pillars Grid */}
-        <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PILLARS.map((pillar) => {
-            const Icon = pillar.icon;
-            return (
-              <div
-                key={pillar.title}
-                className="p-6 rounded-2xl bg-canvas border border-line hover:border-line-strong transition-colors flex flex-col justify-between"
-              >
-                <div>
-                  <div className="size-10 rounded-xl bg-surface border border-line flex items-center justify-center text-ink mb-4">
-                    <Icon className="size-5" />
-                  </div>
-                  <h3 className="text-base font-bold text-ink mb-2">
-                    {pillar.title}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-ink-secondary leading-relaxed">
-                    {pillar.desc}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {BENEFITS.map(({ icon: Icon, title, body }) => (
+            <li key={title} className="panel p-6">
+              <Icon className="size-5 text-ink" aria-hidden />
+              <h3 className="type-h6 mt-5 text-ink">{title}</h3>
+              <p className="type-body-sm mt-2 text-ink-secondary">{body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

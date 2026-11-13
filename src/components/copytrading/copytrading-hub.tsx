@@ -450,7 +450,7 @@ export function CopytradingHub({
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Stage S7 · Unified NEAR Setup</p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">
+          <h1 className="mt-1 type-h4 text-ink">
             Cross-Chain Copytrading
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-ink-muted">
@@ -588,7 +588,7 @@ export function CopytradingHub({
                         <span className="truncate text-sm font-medium text-ink">
                           {trader.resolvedHandle ?? trader.label ?? shortenMiddle(trader.address, 6, 4)}
                         </span>
-                        <span className="chip text-[10px]">
+                        <span className="chip text-xs">
                           {trader.dataMode === "live" ? "Live RPC" : "Sample"}
                         </span>
                       </div>
@@ -597,7 +597,7 @@ export function CopytradingHub({
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         <span
-                          className={`chip text-[10px] ${
+                          className={`chip text-xs ${
                             trader.isMemecoinFree
                               ? "border-green-200 bg-green-50 text-accent-text"
                               : "border-red-200 bg-red-50 text-danger-text"
@@ -605,19 +605,19 @@ export function CopytradingHub({
                         >
                           {trader.isMemecoinFree ? "Memecoin-Free" : "Memecoin Filtered"}
                         </span>
-                        <span className="chip text-[10px]">
+                        <span className="chip text-xs">
                           {trader.positions.length} positions
                         </span>
                       </div>
                     </div>
 
                     <div className="shrink-0 text-right">
-                      <p className="font-mono text-sm font-semibold tabular-nums text-ink">
+                      <p className="font-mono text-sm font-medium tabular-nums text-ink">
                         {trader.realisedPnl90dUsd !== null
                           ? `+${formatUsd(trader.realisedPnl90dUsd)}`
                           : "Live RPC"}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-ink-muted">
+                      <p className="mt-0.5 text-xs text-ink-muted">
                         {trader.winRatePercent !== null
                           ? `${trader.winRatePercent}% win · ${trader.maxDrawdownPercent ?? 0}% DD`
                           : "On-chain balance"}
@@ -658,7 +658,7 @@ export function CopytradingHub({
                         </p>
                       </div>
                       <span
-                        className={`chip text-[10px] ${
+                        className={`chip text-xs ${
                           sub.status === "active"
                             ? "border-green-200 bg-green-50 text-accent-text"
                             : "border-amber-200 bg-amber-50 text-amber-800"
@@ -668,7 +668,7 @@ export function CopytradingHub({
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 text-[11px] text-ink-secondary">
+                    <div className="flex flex-wrap gap-2 text-xs text-ink-secondary">
                       <span>Cap ${sub.maxUsdPerTrade}/trade</span>
                       <span>·</span>
                       <span>
@@ -747,13 +747,13 @@ export function CopytradingHub({
                 {/* AI Summary / Deterministic Briefing */}
                 <div className="border-b border-line bg-surface px-5 py-4 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink">
                       <Sparkles className="size-3.5 text-accent-text" />
                       {briefing?.source === "near_ai_cloud"
                         ? `NEAR AI Cloud Briefing (${briefing.modelId})`
                         : "Deterministic Wallet X-Ray Briefing"}
                     </span>
-                    <span className="text-[11px] text-ink-muted">
+                    <span className="text-xs text-ink-muted">
                       Style: {selectedTrader.primaryStyle}
                     </span>
                   </div>
@@ -764,7 +764,7 @@ export function CopytradingHub({
                     <p className="text-xs leading-relaxed text-ink-secondary">{briefing.summary}</p>
                   ) : null}
 
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                     <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
                     <span>
                       Spot & on-chain DeFi visibility only: any external CEX accounts or perp hedges
@@ -773,7 +773,7 @@ export function CopytradingHub({
                   </div>
 
                   {inspectionNotes.map((note, idx) => (
-                    <p key={idx} className="text-[11px] text-ink-muted">
+                    <p key={idx} className="text-xs text-ink-muted">
                       • {note}
                     </p>
                   ))}
@@ -797,7 +797,7 @@ export function CopytradingHub({
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-medium text-ink">{pos.symbol}</span>
                               <ChainBadge chainId={pos.chainId === 0 ? 8453 : pos.chainId} />
-                              <span className="chip text-[10px]">
+                              <span className="chip text-xs">
                                 {pos.copyableVia === "1click_direct"
                                   ? "1Click Direct"
                                   : pos.copyableVia === "1click_then_protocol"
@@ -816,7 +816,7 @@ export function CopytradingHub({
                             <p className="font-mono text-sm font-medium tabular-nums text-ink">
                               {pos.valueUsd !== null ? formatUsd(pos.valueUsd) : "—"}
                             </p>
-                            <p className="text-[11px] text-ink-muted">
+                            <p className="text-xs text-ink-muted">
                               {pos.weightPercent !== null ? `${pos.weightPercent}% weight` : pos.actionKind}
                             </p>
                           </div>
@@ -846,11 +846,11 @@ export function CopytradingHub({
                 {quotePreview ? (
                   <div className="border-t border-line bg-surface-raised px-5 py-4 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-ink">
+                      <span className="text-xs font-medium text-ink">
                         Copy Policy & Live 1Click Dry Quote Result
                       </span>
                       <span
-                        className={`chip text-[10px] ${
+                        className={`chip text-xs ${
                           quotePreview.allowed
                             ? "border-green-200 bg-green-50 text-accent-text"
                             : "border-red-200 bg-red-50 text-danger-text"
@@ -863,20 +863,20 @@ export function CopytradingHub({
                     {quotePreview.allowed && quotePreview.quote ? (
                       <div className="grid gap-2 text-xs sm:grid-cols-3">
                         <div className="rounded-lg border border-line bg-canvas p-2.5">
-                          <p className="text-[11px] text-ink-muted">From NEAR Hub</p>
-                          <p className="font-mono font-semibold text-ink">
+                          <p className="text-xs text-ink-muted">From NEAR Hub</p>
+                          <p className="font-mono font-medium text-ink">
                             ${quotePreview.quote.amountInUsdc.toFixed(2)} USDC
                           </p>
                         </div>
                         <div className="rounded-lg border border-line bg-canvas p-2.5">
-                          <p className="text-[11px] text-ink-muted">Quoted Output</p>
-                          <p className="font-mono font-semibold text-ink">
+                          <p className="text-xs text-ink-muted">Quoted Output</p>
+                          <p className="font-mono font-medium text-ink">
                             {quotePreview.quote.amountOutFormatted ?? quotePreview.quote.amountOutAtomic}
                           </p>
                         </div>
                         <div className="rounded-lg border border-line bg-canvas p-2.5">
-                          <p className="text-[11px] text-ink-muted">Est. Settlement</p>
-                          <p className="font-mono font-semibold text-ink">
+                          <p className="text-xs text-ink-muted">Est. Settlement</p>
+                          <p className="font-mono font-medium text-ink">
                             {quotePreview.quote.timeEstimateSeconds ?? "—"}s
                           </p>
                         </div>
@@ -892,8 +892,8 @@ export function CopytradingHub({
                     )}
 
                     {quotePreview.protocolFollowUp?.required ? (
-                      <p className="text-[11px] text-ink-secondary">
-                        <span className="font-semibold text-ink">Non-atomic 2nd step:</span>{" "}
+                      <p className="text-xs text-ink-secondary">
+                        <span className="font-medium text-ink">Non-atomic 2nd step:</span>{" "}
                         {quotePreview.protocolFollowUp.stepLabel} (
                         <span className="font-mono">
                           {quotePreview.protocolFollowUp.contractAddress}
@@ -957,7 +957,7 @@ export function CopytradingHub({
 
                         {execResult ? (
                           <div className="rounded-lg border border-green-200 bg-green-50/70 p-3 text-xs text-ink space-y-1">
-                            <p className="font-semibold text-accent-text">
+                            <p className="font-medium text-accent-text">
                               {execResult.mode === "mode_b_agent_api"
                                 ? `Agent Order Dispatched (${execResult.orderId ?? "submitted"})`
                                 : "Committed 1Click Mirror Quote Ready"}
@@ -994,7 +994,7 @@ export function CopytradingHub({
                   eyebrow="All Setup From NEAR"
                   title="Configure Copy Rules & Execution"
                   meta={
-                    <span className="chip border-green-200 bg-green-50 text-[10px] text-accent-text">
+                    <span className="chip border-green-200 bg-green-50 text-xs text-accent-text">
                       No Memecoins Enforced
                     </span>
                   }
@@ -1124,7 +1124,7 @@ export function CopytradingHub({
 
                   {nearSetupDescriptor ? (
                     <div className="rounded-xl border border-line bg-surface-raised p-3.5 text-xs space-y-1.5">
-                      <p className="font-semibold text-ink">
+                      <p className="font-medium text-ink">
                         NEAR Agent API & Chain Signatures (`v1.signer`) Grant Scope
                       </p>
                       {nearSetupDescriptor.humanSummary.map((line, i) => (

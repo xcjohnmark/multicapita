@@ -183,7 +183,7 @@ export function StrategyBuilder({
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Objective</p>
-              <h2 className="text-base font-medium tracking-tight text-ink">
+              <h2 className="type-card-title text-ink">
                 What should the portfolio do?
               </h2>
             </div>
@@ -256,7 +256,7 @@ export function StrategyBuilder({
             role="alert"
             className="rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-ink"
           >
-            <span className="font-semibold text-danger-text">Request failed. </span>
+            <span className="font-medium text-danger-text">Request failed. </span>
             {error}
           </div>
         ) : null}
@@ -280,7 +280,7 @@ export function StrategyBuilder({
                     />
                     <div>
                       <p className="eyebrow">Customize plan</p>
-                      <h3 className="text-sm font-semibold text-ink">
+                      <h3 className="text-sm font-medium text-ink">
                         Adjust weights &amp; policy caps
                       </h3>
                     </div>
@@ -411,7 +411,7 @@ export function StrategyBuilder({
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Enforced</p>
-              <h2 className="text-base font-medium tracking-tight text-ink">Guardrails</h2>
+              <h2 className="type-card-title text-ink">Guardrails</h2>
             </div>
           </div>
           <dl className="space-y-2.5 px-5 py-4 text-xs">
@@ -422,7 +422,7 @@ export function StrategyBuilder({
             <Row label="Max per chain" value={`${overrides.maxChainExposurePercent}%`} />
             <Row label="Max per strategy" value={`${overrides.maxStrategyExposurePercent}%`} />
           </dl>
-          <p className="border-t border-line bg-surface px-5 py-3 text-[11px] leading-relaxed text-ink-muted">
+          <p className="border-t border-line bg-surface px-5 py-3 text-xs leading-relaxed text-ink-muted">
             Applied deterministically after the model answers. A plan that breaks a cap returns
             violations and cannot execute.
           </p>
@@ -432,7 +432,7 @@ export function StrategyBuilder({
           <div className="panel-header">
             <div>
               <p className="eyebrow mb-1">Pipeline</p>
-              <h2 className="text-base font-medium tracking-tight text-ink">Who decides what</h2>
+              <h2 className="type-card-title text-ink">Who decides what</h2>
             </div>
           </div>
           <ol className="space-y-3 px-5 py-4 text-xs text-ink-secondary">
@@ -501,7 +501,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function Step({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-[11px] font-medium text-ink-secondary">
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-xs font-medium text-ink-secondary">
         {n}
       </span>
       <span>

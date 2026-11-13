@@ -19,7 +19,7 @@ export default async function StrategyPage() {
     <div className="space-y-6">
       <header>
         <p className="eyebrow">Planning</p>
-        <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">Strategy</h1>
+        <h1 className="mt-1 type-h4 text-ink">Strategy</h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-muted">
           Describe the outcome you want. The model selects opportunities and explains itself; the
           deterministic policy engine — not the model — decides whether the plan is allowed.
@@ -50,7 +50,7 @@ export default async function StrategyPage() {
             <div className="panel-header">
               <div>
                 <p className="eyebrow mb-1">Candidate set</p>
-                <h2 className="text-base font-medium tracking-tight text-ink">
+                <h2 className="type-card-title text-ink">
                   {context.opportunities.length} opportunit
                   {context.opportunities.length === 1 ? "y" : "ies"} the planner may choose from
                 </h2>
@@ -76,7 +76,7 @@ export default async function StrategyPage() {
                         ? "no sourced rate"
                         : `${opportunity.expectedRatePercent.toFixed(2)}%`}
                     </span>
-                    <span className="chip text-[10px]">{opportunity.dataMode}</span>
+                    <span className="chip text-xs">{opportunity.dataMode}</span>
                   </span>
                 </li>
               ))}

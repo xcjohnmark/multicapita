@@ -1,11 +1,13 @@
 @import "tailwindcss";
 
 /*
-  Capita Design System — Platform-Specific (replicates near.com/home #dashboard in White Mode):
-  - Pure white canvas (#FFFFFF), crisp slate surfaces (#F9FAFB / #F3F4F6), 1px gray-200 borders.
-  - Figtree primary typography (16px base, antialiased, tracking-tight) + JetBrains Mono tabular figures.
-  - Platform radii: 8px (rounded-lg) controls/buttons, 12px (rounded-xl) cards/nav, 16px (rounded-2xl) modals.
-  - Platform accents: green-500 (#22C55E) selection & positive signals, yellow-200/50 signature icon highlight.
+  Capita Design System — light mode, structured after the Nouva template (see DESIGN.md §0):
+  - Colors stay Capita's: white canvas, slate surface steps, 1px gray-200 borders, green accent
+    reserved for the primary action and money-positive states.
+  - Type: Onest for everything except figures (JetBrains Mono, tabular). Headings are regular
+    weight with tight tracking; nothing heavier than 500; nothing smaller than 12px.
+  - Radii: 16px cards/panels, 12px buttons/inputs/insets, 10px media inside a card.
+  - No shadows, glows or gradients on UI: depth comes from surface steps and a 1px border.
   - Micro-interactions: 100ms cubic-bezier(0.4, 0, 0.2, 1), active scale-[0.97], data-loading lock.
 */
 
@@ -47,15 +49,16 @@
   --color-info: #0091fd;
 
   /* Typography */
-  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", "Cascadia Mono", Menlo,
     Consolas, monospace;
 
-  /* Platform Radii */
-  --radius-control: 8px;
-  --radius-panel: 12px;
+  /* Radii (Nouva): cards 16, controls/insets 12, media inside a card 10 */
+  --radius-control: 12px;
+  --radius-panel: 16px;
   --radius-modal: 16px;
+  --radius-media: 10px;
 }
 
 @layer base {
@@ -98,27 +101,6 @@
 }
 
 @layer components {
-  /* 3D Mosaic Flip Engine (used by header visual showcases) */
-  .landing-mosaic-flip {
-    transform-style: preserve-3d;
-    animation: 0.75s cubic-bezier(0.645, 0.045, 0.355, 1) both landingMosaicFlip;
-  }
-  .landing-mosaic-face {
-    backface-visibility: hidden;
-  }
-  .landing-mosaic-back {
-    transform: rotateY(180deg);
-  }
-
-  @keyframes landingMosaicFlip {
-    0% {
-      transform: rotateY(0deg);
-    }
-    100% {
-      transform: rotateY(180deg);
-    }
-  }
-
   .panel {
     background-color: var(--color-canvas);
     border: 1px solid var(--color-line);
@@ -140,13 +122,98 @@
     border-bottom: 1px solid var(--color-line);
   }
 
+  /* Nouva "Tag": eyebrows above section titles and badges only. */
   .eyebrow {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     line-height: 1rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-ink-muted);
-    font-weight: 600;
+    font-weight: 500;
+  }
+
+  /* Type scale (Nouva, Onest regular). One h1 per marketing page; app pages use .type-h4. */
+  .type-h1 {
+    font-size: clamp(2.5rem, 5vw, 3.75rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-weight: 400;
+  }
+  .type-h2 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    font-weight: 400;
+  }
+  .type-h3 {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    font-weight: 400;
+  }
+  .type-h4 {
+    font-size: 1.75rem;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+  .type-h5 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+    font-weight: 400;
+  }
+  .type-h6 {
+    font-size: 1.125rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    font-weight: 400;
+  }
+  /* Dense app panels: card title at body size, medium weight. */
+  .type-card-title {
+    font-size: 1rem;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+    font-weight: 500;
+  }
+  .type-body-lg {
+    font-size: 1.125rem;
+    line-height: 1.4;
+  }
+  .type-body-md {
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+  .type-body-sm {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  /* Nouva section rhythm: 96px vertical, 40px horizontal (24px on phones). */
+  .section {
+    padding: 6rem 1.5rem;
+  }
+  @media (min-width: 768px) {
+    .section {
+      padding: 6rem 2.5rem;
+    }
+  }
+  .section-head {
+    margin: 0 auto 4rem;
+    max-width: 44rem;
+    text-align: center;
+  }
+  .section-head > .eyebrow + * {
+    margin-top: 0.75rem;
+  }
+  .section-head > * + p {
+    margin-top: 1rem;
+  }
+
+  .media {
+    border-radius: var(--radius-media);
+    border: 1px solid var(--color-line);
+    overflow: hidden;
   }
 
   .metric {
@@ -187,7 +254,7 @@
     font-size: 0.875rem;
     font-weight: 500;
     line-height: 1;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.01em;
     cursor: pointer;
     transition:
       transform 100ms cubic-bezier(0.4, 0, 0.2, 1),
@@ -227,7 +294,7 @@
     background: var(--color-accent);
     border-color: var(--color-accent);
     color: var(--color-accent-ink);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .btn-accent:hover:not(:disabled) {
@@ -315,7 +382,7 @@
     flex: 1 1 0%;
     align-items: center;
     gap: 0.75rem;
-    border-radius: var(--radius-panel);
+    border-radius: var(--radius-control);
     padding-left: 0.625rem;
     padding-right: 0.625rem;
     font-size: 0.875rem;

@@ -93,7 +93,7 @@ export function LinkedWalletsPanel({ initialWallets }: { initialWallets: LinkedW
                     ({w.chainFamily === "near" ? w.address : shortenMiddle(w.address, 6, 4)})
                   </span>
                 </p>
-                <p className="text-[11px] text-ink-muted">
+                <p className="text-xs text-ink-muted">
                   {w.ownershipVerifiedAt ? "SIWE Verified Signer" : "Imported Watch/Source Wallet"}
                 </p>
               </div>
@@ -102,7 +102,7 @@ export function LinkedWalletsPanel({ initialWallets }: { initialWallets: LinkedW
               {w.chainFamily === "evm" ? (
                 <ChainBadge chainId={w.chainId} />
               ) : (
-                <span className="chip uppercase text-[10px]">{w.chainFamily}</span>
+                <span className="chip uppercase text-xs">{w.chainFamily}</span>
               )}
               {!w.ownershipVerifiedAt ? (
                 <button

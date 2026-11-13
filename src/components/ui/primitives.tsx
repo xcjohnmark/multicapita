@@ -31,7 +31,7 @@ export function PanelHeader({
     <div className="panel-header">
       <div className="min-w-0">
         {eyebrow ? <p className="eyebrow mb-1">{eyebrow}</p> : null}
-        <h2 className="truncate text-base font-medium tracking-tight text-ink">{title}</h2>
+        <h2 className="type-card-title truncate text-ink">{title}</h2>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {meta}
@@ -61,7 +61,7 @@ export function Metric({
   return (
     <div className="px-5 py-4">
       <p className="eyebrow mb-1.5">{label}</p>
-      <p className={`metric text-2xl font-semibold leading-7 ${toneClass}`} data-numeric>
+      <p className={`metric text-2xl font-medium leading-7 ${toneClass}`} data-numeric>
         {value}
       </p>
       {sub ? <p className="mt-1 text-xs text-ink-muted">{sub}</p> : null}
@@ -105,7 +105,7 @@ export function EmptyState({
 }) {
   return (
     <div className="px-5 py-12 text-center">
-      <p className="text-base font-medium tracking-tight text-ink">{title}</p>
+      <p className="type-card-title text-ink">{title}</p>
       <p className="mx-auto mt-1.5 max-w-md text-sm text-ink-muted">{description}</p>
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
     </div>
@@ -148,14 +148,14 @@ export function DataModeBanner({
   return (
     <div
       role="status"
-      className={`rounded-xl border px-4 py-3 text-sm ${
+      className={`rounded-[var(--radius-control)] border px-4 py-3 text-sm ${
         isDryRun
           ? "border-blue-200 bg-blue-50/70 text-ink"
           : "border-amber-200 bg-amber-50/70 text-ink"
       }`}
     >
       <p className="leading-relaxed">
-        <span className={`font-semibold ${isDryRun ? "text-blue-700" : "text-amber-800"}`}>
+        <span className={`font-medium ${isDryRun ? "text-blue-700" : "text-amber-800"}`}>
           {title ?? (isDryRun ? "Dry run mode." : "Demo mode.")}{" "}
         </span>
         <span className="text-ink-secondary">{message}</span>

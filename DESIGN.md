@@ -2,7 +2,25 @@
 
 > **Document Role:** Canonical UI, branding, and interaction specification for coding agents building **Capita**.
 > **Scope Note (Platform-Specific):** This design system replicates the **`near.com/home` web application platform (`#dashboard`)** extracted in [`project-docs/strp-design-sys.md`](project-docs/strp-design-sys.md), **strictly adapted to White Mode (Light Mode)** and paired with Capita's product requirements in [`project-docs/prd.md`](project-docs/prd.md) and [`GLOSSARY.md`](GLOSSARY.md).
-> Do **not** conflate the marketing landing page (`near.com`) with the app platform (`near.com/home`): the platform uses **`Figtree`**, **`8px` (`rounded-lg`)** buttons, **`12px` (`rounded-xl`)** cards/nav items, **`100ms` tactile scale micro-interactions**, and compact **`16px`** base typography rather than oversized marketing hero blocks.
+> **Update 2026-11-13:** structure, typography, spacing and radii now follow the **Nouva** Framer template's design system (§0), kept in Capita's light palette. §0 wins wherever older sections disagree.
+
+---
+
+## 0. Nouva Structure (current — overrides older sections)
+
+Source: the free **Nouva** Framer template ([marketplace](https://www.framer.com/marketplace/templates/nouva/), [design-system page](https://nouva-template.framer.website/design-system)). We borrow its **system**, not its assets or copy: Nouva is dark-only with no accent; Capita keeps its **light palette** (§2) and the green accent for the primary action and money-positive states only.
+
+**Borrowed:**
+- **Type:** Onest, regular-weight headings with -0.04em tracking (§3).
+- **Spacing:** 8 (inside a group) · 12 (eyebrow→title, button rows) · 16 (card grids, title→subtitle) · 24 (card padding) · 32 (large cards) · 48 (section head→panel) · 64 (section head→content) · **96px section padding top/bottom, 40px left/right** (`.section`), **150px hero top padding**.
+- **Radii:** 16 / 12 / 10 (§5.1).
+- **Restraint:** no shadows/glows/gradients; depth from surface steps + 1px border.
+- **Section anatomy (landing):** `.section` → `.section-head` (`.eyebrow` → `.type-h2` → `.type-body-lg` intro, centered, max 44rem) → content grid with `gap-4`.
+- **Patterns:** full-height landscape hero with centered title, one primary + one outline action and a "Scroll to discover" indicator; feature cards in rows of three; benefits in a 2×3 grid; one landscape per section at most (inside a 16px panel or full-bleed); FAQ accordion; footer with an oversized wordmark.
+
+**Not borrowed:** dark surfaces, Nouva's landscape images, its copy, pricing section, testimonials (Capita has no real testimonials — never invent them).
+
+**Honesty constraints stay absolute:** marketing sections never show rates, APYs or "live" data unless they are read from the database with source + timestamp (see `src/components/landing/live-markets.tsx`); empty states say data hasn't been synced rather than showing placeholders.
 
 ---
 
@@ -12,7 +30,7 @@
 |---|---|
 | **Platform Name** | **Capita** |
 | **Tagline** | *All your crypto. One place.* |
-| **Wordmark** | `Capita` — set in **Figtree SemiBold (`600`)**, `tracking-tight` (`-0.02em`), `text-gray-900` |
+| **Wordmark** | `Capita` — set in **Onest Regular (`400`)**, `-0.02em` tracking, `text-ink` |
 | **Logo Mark** | Minimal geometric "C" / converging loop mark (`24×24px`, `1.5px` stroke) derived from continuous cross-chain settlement geometry |
 | **Theme Mode** | **Strict White Mode (Light Mode)** — pure white canvas, crisp slate borders, high-contrast ink |
 | **Personality** | Calm, clinical, trustworthy, concise. Feels like a modern consumer fintech desk — never noisy, never "degen dark-neon" or generic AI SaaS slop. |
@@ -92,63 +110,31 @@ Derived from the live `near.com/home` platform extraction (`strp-design-sys.md`)
 
 ---
 
-## 3. Typography (`Figtree` Platform System)
+## 3. Typography (Onest, Nouva scale)
 
-Extracted directly from `near.com/home`: the platform uses **`Figtree`** (`Figtree, "Figtree Fallback"`) with `antialiased` font smoothing and `tracking-tight`.
+- **UI & display:** **Onest** (Google Fonts, SIL OFL), loaded with `next/font/google` in [`src/app/layout.tsx`](src/app/layout.tsx) as `--font-onest`, weights `400` and `500` only.
+- **Figures:** **JetBrains Mono** + `tabular-nums` for amounts, rates, hashes, addresses (`.metric`, `data-numeric`).
+- Classes live in [`src/app/globals.css`](src/app/globals.css). Use them instead of ad-hoc `text-[Npx] font-semibold`.
 
-### 3.1 Font Families & Installation
-
-- **Primary UI & Display Font:** **Figtree** (Google Fonts, SIL Open Font License — free for commercial & production use).
-- **Monospace / Financial Precision Font:** **JetBrains Mono** (Google Fonts, SIL OFL) OR `Figtree` with `tabular-nums` (`font-variant-numeric: tabular-nums`) for compact tables, and `JetBrains Mono` for hashes, contract addresses, atomic amounts, and multi-column KPI numerals so digits never jitter across live refreshes.
-
-Load via `next/font/google` in [`src/app/layout.tsx`](src/app/layout.tsx) (downloads and self-hosts automatically at build time — zero external runtime font requests):
-
-```tsx
-import { Figtree, JetBrains_Mono } from "next/font/google";
-
-const figtree = Figtree({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-figtree",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-mono",
-  display: "swap",
-});
-```
-
-Apply on `<html>`:
-```tsx
-<html lang="en" className={`${figtree.variable} ${jetbrainsMono.variable} antialiased selection:bg-green-500 selection:text-black light`}>
-```
-
-### 3.2 Platform Type Scale
-
-Notice from `strp-design-sys.md`: `near.com/home` is an **app dashboard**, not a marketing landing page. Its base size is **`16px` (`1rem`)**, and headings often stay tight and close to the base scale (`16px`–`24px`), relying on **weight (`500`–`600`) and `tracking-tight`** rather than giant display banners.
-
-| Token / Role | Size | Weight | Line Height | Letter Spacing | Usage |
+| Class | Size | Line height | Tracking | Weight | Use |
 |---|---|---|---|---|---|
-| `metric-hero` | `28px` / `1.75rem` | `600` SemiBold | `1.15` (`32px`) | `-0.025em` | Total Portfolio Value KPI (`tabular-nums`) |
-| `page-title` | `22px` / `1.375rem` | `600` SemiBold | `1.25` (`28px`) | `-0.02em` | Top-level view header (`Portfolio`, `Opportunities`, `Strategy`) |
-| `section-title` | `16px` / `1rem` | `500` Medium | `1.35` (`22px`) | `-0.015em` | Card/panel titles (matches `near.com/home` `h1`/`h2` compact hierarchy) |
-| `body` | `16px` / `1rem` | `400` Regular | `1.5` (`24px`) | `-0.01em` | Default UI copy, AI explanations, descriptions |
-| `body-sm` | `14px` / `0.875rem` | `400` Regular | `1.45` (`20px`) | `-0.005em` | Table cells, form labels, secondary lists |
-| `button-text` | `14px` / `0.875rem` | `500` Medium | `1` (`leading-none`) | `-0.015em` (`tracking-tight`) | Exact `near.com/home` button typography |
-| `caption` | `12px` / `0.75rem` | `500` Medium | `1.35` (`16px`) | `0` | Timestamps, data sources, wallet truncated strings |
-| `eyebrow` | `11px` / `0.6875rem` | `600` SemiBold | `1.3` (`14px`) | `0.06em` | Uppercase table column headers, card category labels |
-| `metric-table` | `14px` / `0.875rem` | `500` Medium | `1.4` (`20px`) | `-0.01em` | Monospace + `tabular-nums` in tables & quotes |
+| `.type-h1` | 60px (clamps down to 40px) | 1.0 | -0.04em | 400 | Landing hero title, once per page |
+| `.type-h2` | 48px (clamps to 32px) | 1.05 | -0.04em | 400 | Section titles, always under an `.eyebrow` |
+| `.type-h3` | 36px (clamps to 28px) | 1.15 | -0.04em | 400 | Large statements inside a section |
+| `.type-h4` | 28px | 1.3 | -0.02em | 400 | **App page titles** (`Opportunities`, `Positions`, …) |
+| `.type-h5` | 20px | 1.3 | -0.02em | 400 | Landing card titles, strategy card names |
+| `.type-h6` | 18px | 1.4 | -0.01em | 400 | FAQ questions, small titles |
+| `.type-card-title` | 16px | 1.4 | -0.02em | 500 | Dense app panel titles (`PanelHeader`) |
+| `.type-body-lg` | 18px | 1.4 | 0 | 400 | Hero subtitle, section intros |
+| `.type-body-md` | 16px | 1.45 | 0 | 400 | Regular copy, card descriptions |
+| `.type-body-sm` | 14px | 1.5 | 0 | 400 | Captions, small print |
+| `.eyebrow` | 12px uppercase | 1.33 | 0.06em | 500 | Above every section title; badges; table headers |
+| Button text | 15px (`lg`) / 14px (`md`) / 13px (`sm`) | 1 | -0.01em | 500 | Inside buttons only |
 
-### 3.3 Typography Working Guide
-
-1. **Always include `antialiased` and `tracking-tight`** on primary UI text and headings — this gives `Figtree` the exact crisp, compact look of `near.com/home`.
-2. **Buttons use `font-medium leading-none tracking-tight`** (exact class signature from `near.com/home`).
-3. **All monetary & numeric values** (`$`, `%`, `bps`, token balances, gas estimates, timestamps) MUST include `tabular-nums` (`font-variant-numeric: tabular-nums`) so numbers align vertically and never shift during polling.
-4. **Addresses & transaction hashes** use `--font-mono`, `12px`–`13px`, shortened (`0x1a2b…9f3e`) with full copyable value in tooltip/title.
-5. **Hierarchy comes from weight + ink contrast (`gray-900` vs `gray-500`), not huge size jumps.**
+Rules:
+1. **Nothing heavier than `500`.** Headings are regular; hierarchy comes from size, tracking and ink contrast.
+2. **Nothing smaller than `12px`.** No `text-[10px]`/`text-[11px]`.
+3. All money/rate/time figures use `tabular-nums`; addresses are shortened (`0xA238…d1c5`) with the full value in `title`.
 
 ---
 
@@ -214,17 +200,17 @@ Built **desktop-first** to mirror `near.com/home`'s `#dashboard` shell, then sca
 
 Direct replication of `near.com/home`'s platform geometry (`strp-design-sys.md`):
 
-### 5.1 Radius Scale (Platform-Specific)
+### 5.1 Radius Scale (Nouva)
 
-| Token | Value | Tailwind Class | Exact Usage |
-|---|---|---|---|
-| `--radius-sm` | `6px` | `rounded-md` | Small inline tags, code badges, slippage preset chips |
-| `--radius-control` | **`8px`** | `rounded-lg` | **Buttons, icon buttons (`size-9 rounded-lg`), form inputs, dropdown triggers** |
-| `--radius-card` | **`12px`** | `rounded-xl` | **Cards, dashboard panels, nav links (`h-11 rounded-xl`), table containers** |
-| `--radius-modal` | `16px` | `rounded-2xl` | Modals, confirmation dialogs, drawers |
-| `--radius-full` | `9999px` | `rounded-full` | Status dots, avatar circles, chain/mode pills |
+| Token | Value | Use |
+|---|---|---|
+| `--radius-panel` | **16px** | Cards, panels, landscape frames, modals (`.panel`, `.panel-inset`) |
+| `--radius-control` | **12px** | Buttons, inputs, insets, nav links, icon tiles, banners |
+| `--radius-media` | **10px** | Images/media inside a card (`.media`) |
+| `rounded-md` | 6px | Small inline risk tags only |
+| `rounded-full` | 9999px | Status dots, chips/pills, avatars |
 
-> **Anti-Slop Rule:** Never mix arbitrary radii (`rounded-[14px]`, `rounded-[22px]`). Every control is `8px` (`rounded-lg`), every card/nav item is `12px` (`rounded-xl`), and every modal is `16px` (`rounded-2xl`).
+> Never use other arbitrary radii. Depth comes from surface steps (`canvas` → `surface` → `surface-raised`) and a 1px `line` border — **no shadows, glows or gradients on UI** (the only gradients allowed are legibility scrims over landscape photos).
 
 ### 5.2 Elevation & Shadow Model
 
@@ -354,7 +340,7 @@ hover:bg-gray-900/4 focus-visible:outline-2 focus-visible:outline-gray-900
 **Chart Rules:**
 - Transparent background sitting inside a white `rounded-xl` card.
 - Gridlines: `1px` dashed `#E5E7EB` (`gray-200`).
-- Axis labels: `11px` `Figtree` or `JetBrains Mono` in `gray-500`.
+- Axis labels: `12px` `Onest` or `JetBrains Mono` in `gray-500`.
 - Allocation bars: `rounded-md` segments with `2px` white gap between categories, matching [`src/app/page.tsx`](src/app/page.tsx).
 
 ---
@@ -467,7 +453,7 @@ DESIGN.md                           ← This canonical design spec (repo root)
 src/
 ├── app/
 │   ├── globals.css                 ← White Mode @theme tokens, base isolate, micro-interaction helpers
-│   ├── layout.tsx                  ← Figtree + JetBrains Mono loading, html selection/light classes
+│   ├── layout.tsx                  ← Onest + JetBrains Mono loading, html selection/light classes
 │   ├── page.tsx                    ← Overview (#dashboard)
 │   ├── opportunities/page.tsx      ← Opportunity Explorer
 │   ├── strategy/page.tsx           ← AI Strategy Builder + Policy Guardrail Check
@@ -496,7 +482,7 @@ src/
 ## 15. Implementation Checklist
 
 - [ ] Install `lucide-react` (`npm.cmd install lucide-react`) for concise icon-first UI
-- [ ] Configure `Figtree` and `JetBrains_Mono` via `next/font/google` in `src/app/layout.tsx`
+- [x] Configure `Onest` and `JetBrains_Mono` via `next/font/google` in `src/app/layout.tsx`
 - [ ] Update `<html>` (`antialiased selection:bg-green-500 selection:text-black light`) and `<body>` (`relative isolate bg-white text-gray-900`)
 - [ ] Migrate `src/app/globals.css` from legacy dark tokens to the White Mode `@theme` tokens in §13
 - [ ] Update `src/components/shell/app-shell.tsx` with **Capita** wordmark, `h-11 rounded-xl px-2.5 gap-3` nav items, `hover:bg-gray-900/4`, and concise icon-only header actions (`size-9 rounded-lg`)

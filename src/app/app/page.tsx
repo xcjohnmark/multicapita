@@ -99,7 +99,7 @@ export default async function OverviewPage() {
       <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Portfolio</p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">
+          <h1 className="mt-1 type-h4 text-ink">
             Cross-chain overview
           </h1>
         </div>
@@ -147,7 +147,7 @@ export default async function OverviewPage() {
 
       {health.alerts.length > 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-4 text-xs text-amber-900 space-y-1.5">
-          <p className="font-semibold flex items-center gap-1.5">
+          <p className="font-medium flex items-center gap-1.5">
             <StatusDot tone="warn" /> Continuous Monitoring Alert:
           </p>
           <ul className="list-disc pl-5 space-y-1">
@@ -312,14 +312,14 @@ export default async function OverviewPage() {
                 </Link>
               </div>
 
-              <p className="text-[11px] leading-relaxed text-ink-muted">{preview.note}</p>
+              <p className="text-xs leading-relaxed text-ink-muted">{preview.note}</p>
             </div>
           ) : (
             <div className="px-5 py-5">
               <p className="text-sm font-medium text-ink">Route temporarily unavailable</p>
               <p className="mt-1 text-xs text-ink-muted">{preview.error}</p>
               {preview.correlationId ? (
-                <p className="mt-2 font-mono text-[11px] text-ink-faint">{preview.correlationId}</p>
+                <p className="mt-2 font-mono text-xs text-ink-faint">{preview.correlationId}</p>
               ) : null}
             </div>
           )}
@@ -355,7 +355,7 @@ export default async function OverviewPage() {
                         <AssetIcon symbolOrName={item.token.symbol} size="md" />
                         <div>
                           <p className="font-medium text-ink">{item.token.symbol}</p>
-                          <p className="font-mono text-[11px] text-ink-muted">
+                          <p className="font-mono text-xs text-ink-muted">
                             {shortenMiddle(item.token.contractAddress, 8, 6)}
                           </p>
                         </div>

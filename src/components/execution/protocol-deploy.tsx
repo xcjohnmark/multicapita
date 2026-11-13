@@ -411,7 +411,7 @@ export function ProtocolDeploy() {
             </span>
             <p className="eyebrow">Protocol Deploy, LP, Withdraw & RWA</p>
           </div>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">
+          <h2 className="mt-1 type-h5 text-ink">
             Destination Protocol Execution
           </h2>
         </div>
@@ -518,7 +518,7 @@ export function ProtocolDeploy() {
       {action === "equity_swap" && (
         <div className="space-y-3 rounded-xl border border-line bg-surface p-4 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-semibold text-ink">Verified Equities & RWAs (Live NAV + DEX Check)</p>
+            <p className="font-medium text-ink">Verified Equities & RWAs (Live NAV + DEX Check)</p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -554,12 +554,12 @@ export function ProtocolDeploy() {
                 }`}
               >
                 <p className="font-medium text-ink">{choice.label}</p>
-                <p className="text-[11px] text-ink-muted">{choice.sub}</p>
+                <p className="text-xs text-ink-muted">{choice.sub}</p>
               </button>
             ))}
           </div>
 
-          <label className="flex items-center gap-2 text-[11px] text-ink-secondary">
+          <label className="flex items-center gap-2 text-xs text-ink-secondary">
             <input
               type="checkbox"
               checked={allowOffHours}
@@ -572,7 +572,7 @@ export function ProtocolDeploy() {
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50/90 p-4 text-xs text-danger-text">
-          <span className="font-semibold">Execution Blocked: </span>
+          <span className="font-medium">Execution Blocked: </span>
           {error}
         </div>
       )}
@@ -581,10 +581,10 @@ export function ProtocolDeploy() {
         <div className="space-y-4 rounded-xl border border-line bg-surface p-4 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="font-semibold text-ink">
+              <p className="font-medium text-ink">
                 2-Leg Cross-Chain Arbitrage (Live DEX Screener + 1Click Cost Gate)
               </p>
-              <p className="text-[11px] text-ink-muted">
+              <p className="text-xs text-ink-muted">
                 Non-atomic sequence: Leg 1 moves capital across chains via 1Click; Leg 2 swaps on destination DEX.
                 Never dispatches automatically below net profit threshold ($5.00).
               </p>
@@ -608,11 +608,11 @@ export function ProtocolDeploy() {
                   className="rounded-lg border border-line bg-canvas p-3.5 space-y-2"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold text-ink">
+                    <span className="font-medium text-ink">
                       {item.asset} · Base vs Arbitrum ({item.dataMode.toUpperCase()})
                     </span>
                     <span
-                      className={`chip text-[10px] ${
+                      className={`chip text-xs ${
                         item.status === "active"
                           ? "border-green-200 bg-green-50 text-accent-text"
                           : "border-red-200 bg-red-50 text-danger-text"
@@ -623,7 +623,7 @@ export function ProtocolDeploy() {
                         : `Blocked ($${item.sourcePayload?.expectedProfitUsd ?? 0} net)`}
                     </span>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3 text-[11px] text-ink-secondary">
+                  <div className="grid gap-2 sm:grid-cols-3 text-xs text-ink-secondary">
                     <span>Base DEX: ${item.sourcePayload?.basePriceUsd ?? "—"}</span>
                     <span>Arbitrum DEX: ${item.sourcePayload?.arbPriceUsd ?? "—"}</span>
                     <span>
@@ -632,7 +632,7 @@ export function ProtocolDeploy() {
                     </span>
                   </div>
                   {item.sourcePayload?.reason ? (
-                    <p className="text-[11px] text-danger-text">{item.sourcePayload.reason}</p>
+                    <p className="text-xs text-danger-text">{item.sourcePayload.reason}</p>
                   ) : null}
                   {item.status === "active" ? (
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -675,7 +675,7 @@ export function ProtocolDeploy() {
               <span className="eyebrow">
                 Step {stepData.step} of {stepData.totalSteps}
               </span>
-              <h3 className="text-sm font-semibold text-ink">{stepData.stepName}</h3>
+              <h3 className="text-sm font-medium text-ink">{stepData.stepName}</h3>
             </div>
             <span className="chip border-green-200 bg-green-50 text-accent-text">
               <StatusDot tone="ok" /> Ready to Sign
@@ -700,7 +700,7 @@ export function ProtocolDeploy() {
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-muted">Spread Deviation</span>
-                <span className="font-mono font-semibold text-accent-text">
+                <span className="font-mono font-medium text-accent-text">
                   {stepData.provenance.navDeviationBps} bps
                 </span>
               </div>
@@ -741,7 +741,7 @@ export function ProtocolDeploy() {
                 href={`${stepData.instruction.explorerUrl}/tx/${txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline break-all"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline break-all"
               >
                 <span>
                   View on Explorer ({txHash.slice(0, 10)}…{txHash.slice(-8)})
@@ -753,8 +753,8 @@ export function ProtocolDeploy() {
 
           {completed && (
             <div className="rounded-lg border border-green-300 bg-green-100/60 p-3 text-xs text-green-900">
-              <p className="font-semibold">Protocol Execution Completed</p>
-              <p className="mt-0.5 text-[11px]">
+              <p className="font-medium">Protocol Execution Completed</p>
+              <p className="mt-0.5 text-xs">
                 Your position has been recorded. Check the{" "}
                 <a href="/positions" className="font-medium underline hover:text-green-700">
                   Positions page

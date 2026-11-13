@@ -25,7 +25,7 @@ export default async function ActivityPage() {
       <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Audit & Compliance</p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">
+          <h1 className="mt-1 type-h4 text-ink">
             Activity & Security Log
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
@@ -37,15 +37,15 @@ export default async function ActivityPage() {
         <div className="flex gap-4 text-xs">
           <div className="rounded-lg border border-line bg-surface px-3 py-2">
             <span className="eyebrow">Total Events</span>
-            <p className="font-mono font-semibold text-ink text-sm">{events.length}</p>
+            <p className="font-mono font-medium text-ink text-sm">{events.length}</p>
           </div>
           <div className="rounded-lg border border-line bg-surface px-3 py-2">
             <span className="eyebrow">Health Alerts</span>
-            <p className="font-mono font-semibold text-amber-700 text-sm">{alertsCount}</p>
+            <p className="font-mono font-medium text-amber-700 text-sm">{alertsCount}</p>
           </div>
           <div className="rounded-lg border border-line bg-surface px-3 py-2">
             <span className="eyebrow">Executions</span>
-            <p className="font-mono font-semibold text-accent-text text-sm">{executionCount}</p>
+            <p className="font-mono font-medium text-accent-text text-sm">{executionCount}</p>
           </div>
         </div>
       </header>
@@ -84,7 +84,7 @@ export default async function ActivityPage() {
                     </td>
                     <td className="px-5 py-3">
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-mono font-medium ${
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-mono font-medium ${
                           isAlert
                             ? "bg-amber-50 text-amber-800 border border-amber-200"
                             : isSuccess
@@ -103,7 +103,7 @@ export default async function ActivityPage() {
                       {event.referenceId ? `${event.referenceId.slice(0, 10)}…` : "—"}
                     </td>
                     <td className="max-w-[340px] px-5 py-3">
-                      <pre className="truncate font-mono text-[11px] text-ink-secondary bg-surface px-2 py-1 rounded border border-line/60">
+                      <pre className="truncate font-mono text-xs text-ink-secondary bg-surface px-2 py-1 rounded border border-line/60">
                         {event.details ? JSON.stringify(event.details) : "—"}
                       </pre>
                     </td>

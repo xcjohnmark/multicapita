@@ -48,7 +48,7 @@ export default function SignInPage() {
               <circle cx="17.5" cy="8" r="2.25" fill="#22C55E" />
             </svg>
           </div>
-          <h1 className="text-[22px] font-semibold tracking-tight text-ink">Sign in to Capita</h1>
+          <h1 className="type-h4 text-ink">Sign in to Capita</h1>
           <p className="mt-1 text-sm text-ink-muted">All your crypto. One place.</p>
         </div>
 

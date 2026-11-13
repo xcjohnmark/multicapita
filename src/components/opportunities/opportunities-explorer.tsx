@@ -90,7 +90,7 @@ export function OpportunitiesExplorer({
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Discovery</p>
-          <h1 className="mt-1 text-[22px] font-semibold tracking-tight text-ink">Opportunities</h1>
+          <h1 className="mt-1 type-h4 text-ink">Opportunities</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
             Every opportunity carries its protocol, chain, asset identity, data source, and
             observation time. A displayed rate is research, not an executable quote.
@@ -165,7 +165,7 @@ export function OpportunitiesExplorer({
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className="metric text-[11px] text-ink-faint">{count}</span>
+                <span className="metric text-xs text-ink-faint">{count}</span>
               </button>
             );
           })}
@@ -272,14 +272,19 @@ export function OpportunitiesExplorer({
                               <AssetIcon symbolOrName={row.tokenOrPairRef.split(/[\s/-]/)[0] ?? row.tokenOrPairRef} size="md" />
                               <div>
                                 <p className="font-medium text-ink">{row.tokenOrPairRef}</p>
-                                <p className="font-mono text-[11px] text-ink-muted">
-                                  {row.marketOrPoolAddress ?? "address pending verification"}
+                                <p
+                                  className="whitespace-nowrap font-mono text-xs text-ink-muted"
+                                  title={row.marketOrPoolAddress ?? undefined}
+                                >
+                                  {row.marketOrPoolAddress
+                                    ? `${row.marketOrPoolAddress.slice(0, 6)}…${row.marketOrPoolAddress.slice(-4)}`
+                                    : "address pending verification"}
                                 </p>
                               </div>
                             </div>
                           </td>
                           <td className="px-5 py-3">
-                            <div className="flex items-center gap-1.5 text-ink-secondary">
+                            <div className="flex items-center gap-1.5 whitespace-nowrap text-ink-secondary">
                               <AssetIcon symbolOrName={row.protocolName} size="sm" />
                               <span>{row.protocolName}</span>
                             </div>
@@ -301,7 +306,7 @@ export function OpportunitiesExplorer({
                                 ? formatUsdDelta(row.expectedProfitUsd)
                                 : formatPercent(row.estimatedApy)}
                             </span>
-                            <span className="ml-1 text-[10px] uppercase text-ink-muted">
+                            <span className="ml-1 text-xs uppercase text-ink-muted">
                               {isArb ? "net est." : isEquity ? "NAV diff" : (row.rateType ?? "")}
                             </span>
                           </td>
@@ -309,18 +314,18 @@ export function OpportunitiesExplorer({
                             {formatUsd(row.liquidityUsd ?? row.tvlUsd, { whole: true })}
                           </td>
                           <td className="px-5 py-3">
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex min-w-[11rem] flex-wrap gap-1">
                               {row.riskFlags.map((flag) => (
                                 <span
                                   key={flag}
-                                  className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50/80 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-amber-200 bg-amber-50/80 px-1.5 py-0.5 text-xs font-medium text-amber-800"
                                 >
                                   <AlertTriangle className="size-2.5" strokeWidth={1.5} aria-hidden />
                                   {flag.replaceAll("_", " ")}
                                 </span>
                               ))}
                               {missingRate ? (
-                                <span className="inline-flex items-center rounded-md border border-line bg-surface px-1.5 py-0.5 text-[10px] text-ink-muted">
+                                <span className="inline-flex items-center rounded-md border border-line bg-surface px-1.5 py-0.5 text-xs text-ink-muted">
                                   rate unverified
                                 </span>
                               ) : null}
@@ -335,7 +340,7 @@ export function OpportunitiesExplorer({
                           <td className="px-5 py-3 text-right">
                             <Link
                               href={actionHref}
-                              className="btn btn-secondary h-8 px-2.5 text-xs"
+                              className="btn btn-secondary h-8 whitespace-nowrap px-2.5 text-xs"
                             >
                               <span>{actionLabel}</span>
                               <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />

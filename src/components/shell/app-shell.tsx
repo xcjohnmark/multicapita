@@ -47,7 +47,7 @@ export function AppShell({
         <div className="flex h-14 items-center justify-between px-4 lg:h-16 lg:px-5">
           <Link href="/" className="flex items-center gap-2.5 rounded-lg outline-offset-4">
             <LogoMark />
-            <span className="text-base font-semibold tracking-tight text-ink">Capita</span>
+            <span className="type-card-title tracking-tight text-ink">Capita</span>
           </Link>
           <span className="lg:hidden">
             <ModeChip session={session} />

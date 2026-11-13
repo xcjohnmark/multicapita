@@ -72,7 +72,7 @@ export function SyncButton({
         {iconOnly ? null : <span>{syncing ? "Syncing…" : label}</span>}
       </button>
       {error ? (
-        <span role="alert" className="text-[11px] text-danger-text">
+        <span role="alert" className="text-xs text-danger-text">
           {error}
         </span>
       ) : null}

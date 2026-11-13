@@ -250,14 +250,14 @@ export function StrategyPackageCard({
       <div className="flex flex-col justify-between gap-3 border-b border-line px-5 py-4 sm:flex-row sm:items-start">
         <div className="min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`chip border text-[11px] font-medium ${category.badgeClass}`}>
+            <span className={`chip border text-xs font-medium ${category.badgeClass}`}>
               {category.label}
             </span>
-            <span className="text-[11px] text-ink-muted">
+            <span className="text-xs text-ink-muted">
               {result.source === "model" ? result.modelId ?? "NEAR AI Cloud" : "Deterministic planner"}
             </span>
           </div>
-          <h2 className="text-lg font-semibold tracking-tight text-ink">{strategyName}</h2>
+          <h2 className="type-h5 text-ink">{strategyName}</h2>
           {summary && summary !== strategyName ? (
             <p className="max-w-2xl text-sm leading-relaxed text-ink-secondary">{summary}</p>
           ) : null}
@@ -285,26 +285,26 @@ export function StrategyPackageCard({
       <div className="grid grid-cols-3 divide-x divide-line border-b border-line bg-surface">
         <div className="px-5 py-3.5">
           <p className="eyebrow">Est. Target APY</p>
-          <p className="metric mt-1 text-xl font-semibold text-accent-text" data-numeric>
+          <p className="metric mt-1 text-xl font-medium text-accent-text" data-numeric>
             {targetApy !== null ? formatPercent(targetApy) : "—"}
           </p>
-          <p className="mt-0.5 text-[11px] text-ink-muted">Variable · weighted est.</p>
+          <p className="mt-0.5 text-xs text-ink-muted">Variable · weighted est.</p>
         </div>
         <div className="px-5 py-3.5">
           <p className="eyebrow">Deploying</p>
-          <p className="metric mt-1 text-xl font-semibold text-ink" data-numeric>
+          <p className="metric mt-1 text-xl font-medium text-ink" data-numeric>
             {formatUsd(evaluation.totals.allocatedUsd)}
           </p>
-          <p className="mt-0.5 text-[11px] text-ink-muted">
+          <p className="mt-0.5 text-xs text-ink-muted">
             of {formatUsd(evaluation.totals.deployableUsd)} cap
           </p>
         </div>
         <div className="px-5 py-3.5">
           <p className="eyebrow">Liquid Reserve</p>
-          <p className="metric mt-1 text-xl font-semibold text-ink" data-numeric>
+          <p className="metric mt-1 text-xl font-medium text-ink" data-numeric>
             {formatUsd(evaluation.totals.reserveUsd)}
           </p>
-          <p className="mt-0.5 text-[11px] text-ink-muted">
+          <p className="mt-0.5 text-xs text-ink-muted">
             {evaluation.totals.reservePercent.toFixed(0)}% liquid buffer
           </p>
         </div>
@@ -365,7 +365,7 @@ export function StrategyPackageCard({
           <ol className="space-y-2 text-xs leading-relaxed text-ink-secondary">
             {howItWorks.slice(0, 4).map((step, index) => (
               <li key={index} className="flex gap-2.5">
-                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-[10px] font-semibold text-ink">
+                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border border-line-strong bg-surface text-xs font-medium text-ink">
                   {index + 1}
                 </span>
                 <span>{step}</span>
@@ -448,11 +448,11 @@ export function StrategyPackageCard({
       {stagedLinks && stagedLinks.length > 0 ? (
         <div className="border-t border-line bg-green-50/40 px-5 py-4 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-semibold text-accent-text flex items-center gap-1.5">
+            <p className="text-xs font-medium text-accent-text flex items-center gap-1.5">
               <CheckCircle2 className="size-3.5" />
               Strategy approved — execute each non-atomic leg in sequence:
             </p>
-            <span className="text-[11px] text-ink-muted">No claimed cross-chain atomicity</span>
+            <span className="text-xs text-ink-muted">No claimed cross-chain atomicity</span>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {stagedLinks.map((leg) => (
@@ -552,7 +552,7 @@ export function StrategyPackageCard({
                         />
                       </span>
                       <span className="text-ink-secondary">
-                        <span className="font-mono text-[10px] uppercase text-ink-muted">
+                        <span className="font-mono text-xs uppercase text-ink-muted">
                           {violation.code}
                         </span>{" "}
                         {violation.message}
@@ -611,7 +611,7 @@ export function StrategyPackageCard({
             <summary className="cursor-pointer px-5 py-2.5 text-xs font-medium text-ink-muted hover:text-ink">
               Audit execution trace ({result.trace.length} steps)
             </summary>
-            <ol className="space-y-1 px-5 pb-3.5 font-mono text-[11px] text-ink-muted">
+            <ol className="space-y-1 px-5 pb-3.5 font-mono text-xs text-ink-muted">
               {result.trace.map((step, index) => (
                 <li key={`${step.step}-${index}`}>
                   <span className="font-medium text-ink">{step.step}</span> · {step.detail}
@@ -620,7 +620,7 @@ export function StrategyPackageCard({
             </ol>
           </details>
 
-          <p className="border-t border-line bg-surface px-5 py-3 text-[11px] leading-relaxed text-ink-muted">
+          <p className="border-t border-line bg-surface px-5 py-3 text-xs leading-relaxed text-ink-muted">
             A passing proposal is not an executable order. Execution requires a fresh 1Click quote,
             a wallet signature, and explicit approval. Multi-leg strategies are not atomic.
           </p>

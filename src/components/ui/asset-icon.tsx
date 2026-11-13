@@ -101,7 +101,7 @@ export function AssetIcon({ symbolOrName, className = "", size = "md" }: AssetIc
   const initial = (symbolOrName[0] ?? "?").toUpperCase();
   return (
     <div
-      className={`${sizeClass} shrink-0 rounded-full bg-surface-raised border border-line flex items-center justify-center font-bold font-mono text-[10px] text-ink-secondary select-none ${className}`}
+      className={`${sizeClass} shrink-0 rounded-full bg-surface-raised border border-line flex items-center justify-center font-medium font-mono text-xs text-ink-secondary select-none ${className}`}
     >
       {initial}
     </div>
