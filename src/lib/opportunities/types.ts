@@ -16,7 +16,8 @@ export type OpportunityInput = {
   chainId: number;
   tokenOrPairRef: string;
   marketOrPoolAddress?: string;
-  estimatedApy: number;
+  /** A yield or rate in percent. `null` when the row has no yield (e.g. a tokenized stock). */
+  estimatedApy: number | null;
   rateType: "APY" | "APR" | "estimated_net_trade_profit" | "reference_nav_exposure";
   tvlUsd?: number;
   volume24hUsd?: number;

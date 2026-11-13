@@ -8,6 +8,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { DEMO_USER_EMAIL } from "../src/lib/auth/demo-user";
 import { resolveDatabaseUrl } from "../src/lib/db/database-url";
 
 const adapter = new PrismaPg({ connectionString: resolveDatabaseUrl() });
@@ -246,7 +247,7 @@ async function main() {
     ],
   });
 
-  const user = await prisma.user.create({ data: { email: "demo@localhost" } });
+  const user = await prisma.user.create({ data: { email: DEMO_USER_EMAIL } });
 
   // A real, database-backed guardrail set — not the in-code defaults. The policy engine reads
   // these rows, so editing them changes what the demo permits.

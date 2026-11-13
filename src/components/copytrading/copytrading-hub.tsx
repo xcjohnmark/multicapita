@@ -70,6 +70,13 @@ export type SerializedSubscription = {
   };
 };
 
+/** Display only: trims an exact decimal string to 6 fractional digits. Never used to build a tx. */
+function formatDisplayAmount(exact: string): string {
+  const value = Number(exact);
+  if (!Number.isFinite(value)) return exact;
+  return value.toLocaleString("en-US", { maximumFractionDigits: 6 });
+}
+
 type QuotePreviewResult = {
   allowed: boolean;
   evaluation: {
@@ -449,7 +456,7 @@ export function CopytradingHub({
     <div className="space-y-6">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="eyebrow">Stage S7 · Unified NEAR Setup</p>
+          <p className="eyebrow">Copytrading</p>
           <h1 className="mt-1 type-h4 text-ink">
             Cross-Chain Copytrading
           </h1>
@@ -477,7 +484,7 @@ export function CopytradingHub({
         <DataModeBanner
           dataMode="sample"
           title="Sample leaderboard profiles included."
-          message="Cards marked Sample represent reference traders. Paste any 0x, .eth, or .near address in Wallet X-Ray above to inspect live on-chain balances and Aave debt."
+          message="Cards marked Sample represent reference traders. Paste any 0x, .eth or .near address into Wallet X-Ray below to inspect live on-chain balances and Aave debt."
         />
       ) : null}
 
@@ -488,7 +495,7 @@ export function CopytradingHub({
           title="Inspect any trader across Base, Arbitrum, Ethereum, NEAR or Solana"
           meta={
             <span className="text-xs text-ink-muted">
-              Zerion · DeBank · Sim by Dune · Live On-Chain RPC
+              Live on-chain RPC · Zerion, DeBank or Sim by Dune when configured
             </span>
           }
         />
@@ -856,7 +863,7 @@ export function CopytradingHub({
                             : "border-red-200 bg-red-50 text-danger-text"
                         }`}
                       >
-                        {quotePreview.allowed ? "Policy Passed (dry: true)" : "Policy Blocked"}
+                        {quotePreview.allowed ? "Policy passed · dry quote" : "Policy blocked"}
                       </span>
                     </div>
 
@@ -871,7 +878,9 @@ export function CopytradingHub({
                         <div className="rounded-lg border border-line bg-canvas p-2.5">
                           <p className="text-xs text-ink-muted">Quoted Output</p>
                           <p className="font-mono font-medium text-ink">
-                            {quotePreview.quote.amountOutFormatted ?? quotePreview.quote.amountOutAtomic}
+                            {quotePreview.quote.amountOutFormatted !== null
+                              ? `${formatDisplayAmount(quotePreview.quote.amountOutFormatted)} ${quotedPosition?.symbol ?? ""}`
+                              : `${quotePreview.quote.amountOutAtomic} (atomic)`}
                           </p>
                         </div>
                         <div className="rounded-lg border border-line bg-canvas p-2.5">

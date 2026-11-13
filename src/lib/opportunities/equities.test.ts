@@ -113,6 +113,19 @@ describe("ingestEquityOpportunities", () => {
     ).toBe(false);
   });
 
+  it("never stores a NAV spread as a yield, and never stores the 9999 bps refusal marker", async () => {
+    const priced = await ingestWith(() => ({ nav: 100, dex: 100.5 }));
+    for (const row of priced) expect(row.estimatedApy).toBeNull();
+    expect(bySymbol(priced, "AAPLon").sourcePayload).toMatchObject({ navDeviationBps: 50 });
+
+    const unpriced = await ingestWith(() => ({ nav: 100, dex: null }));
+    for (const row of unpriced) {
+      expect(row.estimatedApy).toBeNull();
+      expect(row.sourcePayload.navDeviationBps).toBeNull();
+      expect(row.feesJson?.navDeviationBps).toBeNull();
+    }
+  });
+
   it("routes unpriced assets via 1Click only when a 1Click asset id exists", async () => {
     const rows = await ingestWith(() => ({ nav: 100, dex: null }));
 

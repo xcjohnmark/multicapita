@@ -22,6 +22,8 @@ export type SerializedOpportunity = {
   liquidityUsd: number | null;
   riskFlags: string[];
   expectedProfitUsd: number | null;
+  /** Tokenized equities only: measured DEX-vs-reference spread, null when either price is missing. */
+  navDeviationBps: number | null;
   dataMode: string;
   observedAtIso: string;
   status: string;
@@ -196,10 +198,22 @@ export function OpportunitiesExplorer({
       {groupsToRender.length === 0 ? (
         <Panel>
           <div className="px-5 py-12 text-center">
-            <p className="text-base font-medium text-ink">No opportunities match this filter</p>
-            <p className="mt-1 text-sm text-ink-muted">
-              Switch strategy or chain filters, or click Sync markets to refresh live feeds.
-            </p>
+            {opportunities.length === 0 ? (
+              <>
+                <p className="type-card-title text-ink">No markets synced yet</p>
+                <p className="mx-auto mt-1.5 max-w-md text-sm text-ink-muted">
+                  Press Sync markets to read live rates from Aave V3, 1Click Earn vaults, DEX
+                  pools and tokenized-stock issuers. Each row keeps its source and observation time.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="type-card-title text-ink">No opportunities match this filter</p>
+                <p className="mx-auto mt-1.5 max-w-md text-sm text-ink-muted">
+                  Switch the strategy or chain filter, or press Sync markets to refresh.
+                </p>
+              </>
+            )}
           </div>
         </Panel>
       ) : (
@@ -226,14 +240,14 @@ export function OpportunitiesExplorer({
                 <table className="w-full min-w-[820px] text-sm">
                   <thead>
                     <tr className="border-b border-line bg-surface text-left">
-                      <th className="eyebrow px-5 py-2.5">Market</th>
-                      <th className="eyebrow px-5 py-2.5">Protocol</th>
-                      <th className="eyebrow px-5 py-2.5">Chain</th>
-                      <th className="eyebrow px-5 py-2.5 text-right">Rate</th>
-                      <th className="eyebrow px-5 py-2.5 text-right">Liquidity</th>
-                      <th className="eyebrow px-5 py-2.5">Risks & Flags</th>
-                      <th className="eyebrow px-5 py-2.5 text-right">Observed</th>
-                      <th className="eyebrow px-5 py-2.5 text-right">Action</th>
+                      <th className="eyebrow px-4 py-2.5">Market</th>
+                      <th className="eyebrow px-4 py-2.5">Protocol</th>
+                      <th className="eyebrow px-4 py-2.5">Chain</th>
+                      <th className="eyebrow px-4 py-2.5 text-right">Rate</th>
+                      <th className="eyebrow px-4 py-2.5 text-right">Liquidity</th>
+                      <th className="eyebrow px-4 py-2.5">Risks & Flags</th>
+                      <th className="eyebrow px-4 py-2.5 text-right">Observed</th>
+                      <th className="eyebrow px-4 py-2.5 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-faint">
@@ -241,7 +255,7 @@ export function OpportunitiesExplorer({
                       const isArb = row.strategyType === "arbitrage";
                       const isEquity = row.strategyType === "tokenized_equity";
                       const hasProfit = row.expectedProfitUsd !== null;
-                      const missingRate = !isArb && row.estimatedApy === null;
+                      const missingRate = !isArb && !isEquity && row.estimatedApy === null;
 
                       let actionHref = `/execute?direction=${
                         row.chainId === 42161 ? "base-to-arb" : "arb-to-base"
@@ -267,10 +281,10 @@ export function OpportunitiesExplorer({
                           key={row.id}
                           className="transition-colors duration-100 hover:bg-surface-hover"
                         >
-                          <td className="px-5 py-3">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-2.5">
                               <AssetIcon symbolOrName={row.tokenOrPairRef.split(/[\s/-]/)[0] ?? row.tokenOrPairRef} size="md" />
-                              <div>
+                              <div className="min-w-[10rem]">
                                 <p className="font-medium text-ink">{row.tokenOrPairRef}</p>
                                 <p
                                   className="whitespace-nowrap font-mono text-xs text-ink-muted"
@@ -283,16 +297,16 @@ export function OpportunitiesExplorer({
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 whitespace-nowrap text-ink-secondary">
                               <AssetIcon symbolOrName={row.protocolName} size="sm" />
                               <span>{row.protocolName}</span>
                             </div>
                           </td>
-                          <td className="px-5 py-3">
+                          <td className="px-4 py-3">
                             <ChainBadge chainId={row.chainId} />
                           </td>
-                          <td className="px-5 py-3 text-right metric" data-numeric>
+                          <td className="px-4 py-3 text-right metric" data-numeric>
                             <span
                               className={`font-medium ${
                                 isArb && hasProfit && (row.expectedProfitUsd ?? 0) > 0
@@ -304,16 +318,26 @@ export function OpportunitiesExplorer({
                             >
                               {isArb && hasProfit
                                 ? formatUsdDelta(row.expectedProfitUsd)
-                                : formatPercent(row.estimatedApy)}
+                                : isEquity
+                                  ? row.navDeviationBps !== null
+                                    ? `${row.navDeviationBps} bps`
+                                    : "—"
+                                  : formatPercent(row.estimatedApy)}
                             </span>
                             <span className="ml-1 text-xs uppercase text-ink-muted">
-                              {isArb ? "net est." : isEquity ? "NAV diff" : (row.rateType ?? "")}
+                              {isArb
+                                ? "net est."
+                                : isEquity
+                                  ? row.navDeviationBps !== null
+                                    ? "vs NAV"
+                                    : "no DEX price"
+                                  : (row.rateType ?? "")}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-right metric text-ink-secondary" data-numeric>
+                          <td className="px-4 py-3 text-right metric text-ink-secondary" data-numeric>
                             {formatUsd(row.liquidityUsd ?? row.tvlUsd, { whole: true })}
                           </td>
-                          <td className="px-5 py-3">
+                          <td className="px-4 py-3">
                             <div className="flex min-w-[11rem] flex-wrap gap-1">
                               {row.riskFlags.map((flag) => (
                                 <span
@@ -334,10 +358,10 @@ export function OpportunitiesExplorer({
                               ) : null}
                             </div>
                           </td>
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-xs text-ink-muted">
+                          <td className="min-w-[6.5rem] px-4 py-3 text-right text-xs leading-relaxed text-ink-muted">
                             {formatDateTime(row.observedAtIso)}
                           </td>
-                          <td className="px-5 py-3 text-right">
+                          <td className="px-4 py-3 text-right">
                             <Link
                               href={actionHref}
                               className="btn btn-secondary h-8 whitespace-nowrap px-2.5 text-xs"

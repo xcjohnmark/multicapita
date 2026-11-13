@@ -40,7 +40,7 @@ export async function loadStrategyContext(userId: string): Promise<StrategyConte
     }),
     prisma.opportunity.findMany({
       include: { protocol: true },
-      orderBy: { estimatedApy: "desc" },
+      orderBy: { estimatedApy: { sort: "desc", nulls: "last" } },
     }),
     prisma.strategyProfile.findFirst({
       where: { userId, isActive: true },

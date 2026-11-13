@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getViewer } from "@/lib/auth/viewer";
+import { env } from "@/lib/env";
+import { loadExecutionSwitch } from "@/lib/execution/limits";
+import { signingGate } from "@/lib/execution/signing-gate";
 import { isSameOrigin } from "@/lib/http/origin";
 import { clientKey, rateLimited } from "@/lib/http/rate-limit";
 import {
@@ -92,6 +95,11 @@ export async function POST(request: Request) {
   }
 
   const userAddress = viewer.address.toLowerCase() as Address;
+  const signing = signingGate({
+    dataMode: env.APP_DATA_MODE,
+    demo: viewer.demo,
+    killSwitch: await loadExecutionSwitch(),
+  });
 
   let body: unknown;
   try {
@@ -139,6 +147,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
           data: {
+            ...signing,
             step: 1,
             totalSteps: 2,
             stepName: "Approve Aave Pool",
@@ -158,6 +167,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         data: {
+          ...signing,
           step: 2,
           totalSteps: 2,
           stepName: "Supply to Aave V3",
@@ -192,6 +202,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         data: {
+          ...signing,
           step: 1,
           totalSteps: 1,
           stepName: "Withdraw from Aave V3",
@@ -236,6 +247,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({
           data: {
+            ...signing,
             step: 1,
             totalSteps: 3,
             stepName: `Approve ${defaultPair.token0Symbol} for Uniswap V3`,
@@ -255,6 +267,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({
           data: {
+            ...signing,
             step: 2,
             totalSteps: 3,
             stepName: `Approve ${defaultPair.token1Symbol} for Uniswap V3`,
@@ -280,6 +293,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         data: {
+          ...signing,
           step: 3,
           totalSteps: 3,
           stepName: `Mint ${defaultPair.pairLabel} LP`,
@@ -311,6 +325,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       data: {
+        ...signing,
         step: 1,
         totalSteps: 1,
         stepName: "Collect Uniswap Fees",
@@ -375,6 +390,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         data: {
+          ...signing,
           step: 1,
           totalSteps: 2,
           stepName: `Approve ${req.direction === "buy" ? "USDC" : asset.symbol} for ${asset.symbol}`,
@@ -414,6 +430,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       data: {
+        ...signing,
         step: 2,
         totalSteps: 2,
         stepName: `${req.direction === "buy" ? "Buy" : "Sell"} ${asset.symbol} via SwapRouter02`,

@@ -42,7 +42,7 @@ async function loadLiveMarkets(): Promise<MarketRow[]> {
         estimatedApy: { not: null },
       },
       include: { protocol: true },
-      orderBy: { estimatedApy: "desc" },
+      orderBy: { estimatedApy: { sort: "desc", nulls: "last" } },
       take: 24,
     });
 

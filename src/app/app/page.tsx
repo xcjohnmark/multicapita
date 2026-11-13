@@ -126,7 +126,7 @@ export default async function OverviewPage() {
                 }`}
               >
                 <StatusDot tone={dataMode === "live" ? "ok" : "warn"} />
-                {dataMode === "live" ? "Live Connected" : "Sandbox Stage"}
+                {dataMode === "live" ? "Live balances" : "Sample balances"}
               </span>
             </div>
             <p className="text-xs text-ink-muted">
@@ -183,13 +183,20 @@ export default async function OverviewPage() {
           />
           <Metric
             label="Unrealised P&L"
-            value={formatUsdDelta(totals.unrealisedPnlUsd)}
+            // Without a cost basis there is no P&L to report; "$0.00" would claim break-even.
+            value={totals.pnlPercent === null ? "—" : formatUsdDelta(totals.unrealisedPnlUsd)}
             sub={
               totals.pnlPercent === null
-                ? "Cost basis unavailable"
+                ? "No cost basis recorded yet"
                 : `${formatPercent(totals.pnlPercent)} on deployed capital`
             }
-            tone={totals.unrealisedPnlUsd >= 0 ? "positive" : "negative"}
+            tone={
+              totals.pnlPercent === null
+                ? "default"
+                : totals.unrealisedPnlUsd >= 0
+                  ? "positive"
+                  : "negative"
+            }
           />
         </div>
       </Panel>
@@ -201,6 +208,19 @@ export default async function OverviewPage() {
             eyebrow="By strategy"
             meta={<span className="chip metric">{formatUsd(totals.totalUsd, { whole: true })}</span>}
           />
+          {allocation.length === 0 ? (
+            <EmptyState
+              title="Nothing allocated yet"
+              description="Allocation appears once the portfolio holds priced balances or open positions. Ask for a strategy to see where capital could go."
+              action={
+                <Link href="/strategy" className="btn btn-secondary h-9 px-3.5 text-sm">
+                  <span>Plan a strategy</span>
+                  <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
+                </Link>
+              }
+            />
+          ) : (
+          <>
           <div className="px-5 pt-4">
             <div
               className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-surface-raised"
@@ -249,6 +269,8 @@ export default async function OverviewPage() {
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </Panel>
 
         <Panel className="lg:col-span-2">
@@ -368,7 +390,11 @@ export default async function OverviewPage() {
                       {item.amountDisplay.toFixed(item.token.decimals > 6 ? 4 : 2)}
                     </td>
                     <td className="px-5 py-3 text-right metric font-medium text-ink" data-numeric>
-                      {item.valueUsd !== null ? formatUsd(item.valueUsd) : "Unpriced"}
+                      {item.valueUsd !== null && item.priceSource !== "unpriced" ? (
+                        formatUsd(item.valueUsd)
+                      ) : (
+                        <span className="font-normal text-ink-muted">Unpriced</span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right text-xs text-ink-muted">
                       {item.priceSource ?? "—"}

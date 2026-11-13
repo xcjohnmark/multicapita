@@ -21,7 +21,7 @@ const unlinkSchema = z.object({
 
 export async function GET() {
   const viewer = await getViewer();
-  if (!viewer) {
+  if (!viewer || viewer.demo) {
     return NextResponse.json({ error: { message: "Sign in to manage wallets." } }, { status: 401 });
   }
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   }
 
   const viewer = await getViewer();
-  if (!viewer) {
+  if (!viewer || viewer.demo) {
     return NextResponse.json({ error: { message: "Sign in to import wallets." } }, { status: 401 });
   }
 
@@ -109,7 +109,7 @@ export async function DELETE(request: Request) {
   }
 
   const viewer = await getViewer();
-  if (!viewer) {
+  if (!viewer || viewer.demo) {
     return NextResponse.json({ error: { message: "Sign in to manage wallets." } }, { status: 401 });
   }
 

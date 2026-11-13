@@ -46,6 +46,9 @@ type PreparedProtocolStep = {
   totalSteps: number;
   stepName: string;
   requiresApproval?: boolean;
+  /** Server-decided: false outside live mode, for demo viewers, or with the kill switch on. */
+  signable: boolean;
+  signingBlockedReason: string | null;
   instruction: {
     chainId: number;
     to: string;
@@ -334,7 +337,7 @@ export function ProtocolDeploy() {
   }
 
   async function signAndBroadcast() {
-    if (!stepData) return;
+    if (!stepData || !stepData.signable) return;
     const provider = window.ethereum;
     if (!provider) {
       setError("No injected wallet detected.");
@@ -677,9 +680,15 @@ export function ProtocolDeploy() {
               </span>
               <h3 className="text-sm font-medium text-ink">{stepData.stepName}</h3>
             </div>
-            <span className="chip border-green-200 bg-green-50 text-accent-text">
-              <StatusDot tone="ok" /> Ready to Sign
-            </span>
+            {stepData.signable ? (
+              <span className="chip border-green-200 bg-green-50 text-accent-text">
+                <StatusDot tone="ok" /> Ready to sign
+              </span>
+            ) : (
+              <span className="chip border-blue-200 bg-blue-50 text-blue-700">
+                <StatusDot tone="info" /> Preview only
+              </span>
+            )}
           </div>
 
           <p className="text-ink-secondary leading-relaxed">{stepData.note}</p>
@@ -711,6 +720,31 @@ export function ProtocolDeploy() {
             </div>
           )}
 
+          <dl className="space-y-1.5 rounded-lg border border-line bg-canvas p-3">
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-muted">Call</dt>
+              <dd className="text-right font-medium text-ink">{stepData.instruction.description}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-muted">Contract</dt>
+              <dd className="font-mono text-ink" title={stepData.instruction.to}>
+                {stepData.instruction.to.slice(0, 6)}…{stepData.instruction.to.slice(-4)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-muted">Chain</dt>
+              <dd className="text-ink">{stepData.instruction.chainId}</dd>
+            </div>
+          </dl>
+
+          {!stepData.signable ? (
+            <p
+              role="status"
+              className="rounded-lg border border-blue-200 bg-blue-50/70 p-3 leading-relaxed text-ink-secondary"
+            >
+              {stepData.signingBlockedReason}
+            </p>
+          ) : (
           <div className="flex flex-col gap-2 pt-2">
             <button
               type="button"
@@ -730,6 +764,7 @@ export function ProtocolDeploy() {
               </span>
             </button>
           </div>
+          )}
 
           {txHash && (
             <div className="rounded-lg border border-green-200 bg-green-50 p-3">

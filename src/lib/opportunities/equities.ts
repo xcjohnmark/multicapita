@@ -29,12 +29,17 @@ export async function ingestEquityOpportunities(): Promise<OpportunityInput[]> {
     });
 
     const isLive = q.referenceNavUsd !== null || q.dexPriceUsd !== null;
+    // Only a pair of real prices yields a spread. The evaluator reports 9999 bps when either price
+    // is missing; that is a refusal marker, not a measurement, so it is never stored as a figure.
+    const priced =
+      q.dexPriceUsd !== null && q.dexPriceUsd > 0 && q.referenceNavUsd !== null && q.referenceNavUsd > 0;
+    const navDeviationBps = priced ? evalRes.provenance.navDeviationBps : null;
     const riskFlags: string[] = ["issuer_counterparty_risk"];
     if (evalRes.provenance.sessionStatus === "CLOSED" && !isCommodity) {
       riskFlags.push("us_market_closed");
     }
-    if (!evalRes.provenance.isWithinSpreadBound && q.dexPriceUsd !== null) {
-      riskFlags.push(`nav_spread_${evalRes.provenance.navDeviationBps}_bps`);
+    if (navDeviationBps !== null && !evalRes.provenance.isWithinSpreadBound) {
+      riskFlags.push(`nav_spread_${navDeviationBps}_bps`);
     }
     if (q.dexPriceUsd === null) {
       riskFlags.push(
@@ -58,12 +63,14 @@ export async function ingestEquityOpportunities(): Promise<OpportunityInput[]> {
       chainId: asset.chainId,
       tokenOrPairRef: `${asset.symbol} (${asset.underlyingTicker})`,
       marketOrPoolAddress: asset.contractAddress,
-      estimatedApy: evalRes.provenance.navDeviationBps / 100, // Spread vs NAV (not APY)
+      // A tokenized stock has no yield. The NAV spread lives in feesJson/sourcePayload; putting it
+      // in estimatedApy would let the planner rank a price gap as if it were an APY.
+      estimatedApy: null,
       rateType: "reference_nav_exposure",
       tvlUsd: q.dexLiquidityUsd ?? undefined,
       liquidityUsd: q.dexLiquidityUsd ?? undefined,
       feesJson: {
-        navDeviationBps: evalRes.provenance.navDeviationBps,
+        navDeviationBps,
         referenceNavUsd: q.referenceNavUsd,
         dexExecutionPriceUsd: q.dexPriceUsd,
         sessionStatus: evalRes.provenance.sessionStatus,
@@ -78,7 +85,7 @@ export async function ingestEquityOpportunities(): Promise<OpportunityInput[]> {
         provider: `${q.referenceSource}+${q.dexSource}`,
         referenceNavUsd: q.referenceNavUsd,
         dexPriceUsd: q.dexPriceUsd,
-        navDeviationBps: evalRes.provenance.navDeviationBps,
+        navDeviationBps,
         sessionStatus: evalRes.provenance.sessionStatus,
         underlyingTicker: asset.underlyingTicker,
         issuer: asset.issuer,
