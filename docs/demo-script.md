@@ -7,7 +7,8 @@ funds. Every step states what to look for and what it proves.
 
 ```bash
 npm install
-npx prisma migrate dev     # creates prisma/dev.db, applies both committed migrations
+docker run -d --name capita-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=capita -p 5433:5432 postgres:17
+npx prisma migrate deploy  # applies the committed migrations to the local Postgres
 npm run db:seed            # labelled sample portfolio
 npm run dev                # http://localhost:3000
 ```

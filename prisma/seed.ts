@@ -6,12 +6,11 @@
  */
 
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { resolveDatabaseUrl } from "../src/lib/db/database-url";
 
-const adapter = new PrismaBetterSqlite3({
-  url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
-});
+const adapter = new PrismaPg({ connectionString: resolveDatabaseUrl() });
 const prisma = new PrismaClient({ adapter });
 
 const BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";

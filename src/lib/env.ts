@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveDatabaseUrl } from "@/lib/db/database-url";
 
 /**
  * Server-side configuration. Importing this module from a client component is a bug:
@@ -9,7 +10,8 @@ const emptyToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1).default("file:./prisma/dev.db"),
+  /** Pooled Postgres URL, resolved in loadEnv() via src/lib/db/database-url.ts. */
+  DATABASE_URL: z.string().min(1),
 
   /** sample = fixtures, dry_run = live reads + live quotes, live = real signing */
   APP_DATA_MODE: z.preprocess(
@@ -53,7 +55,7 @@ export type AppEnv = z.infer<typeof envSchema>;
 export type DataMode = AppEnv["APP_DATA_MODE"];
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
-  const parsed = envSchema.safeParse(source);
+  const parsed = envSchema.safeParse({ ...source, DATABASE_URL: resolveDatabaseUrl(source) });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid environment configuration — ${issues}`);

@@ -8,8 +8,8 @@
 //    enforce enums, and keeping them as strings keeps the Postgres migration trivial.
 //  - Every externally sourced figure carries its provider + observation timestamp.
 //
-// Migration path: provider -> "postgresql" and swap the adapter. No SQLite-only features
-// (no ATTACH, no autoincrement tricks, no JSON1 queries) are relied on.
+// PostgreSQL (Neon in production, Docker locally). Migrated from SQLite in ADR-0007; status
+// fields stay strings validated by zod rather than database enums.
 
 generator client {
   provider = "prisma-client"
@@ -17,7 +17,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ---------------------------------------------------------------------------

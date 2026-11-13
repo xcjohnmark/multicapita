@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import { resolveMigrationUrl } from "./src/lib/db/database-url";
 
 // Prisma 7 reads connection settings here, not from schema.prisma.
 // `process.env` (not the throwing `env()` helper) keeps `prisma generate` working
@@ -10,7 +11,8 @@ export default defineConfig({
     path: "prisma/migrations",
     seed: "tsx prisma/seed.ts",
   },
+  // Migrations need a direct (unpooled) connection; see src/lib/db/database-url.ts.
   datasource: {
-    url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
+    url: resolveMigrationUrl(),
   },
 });

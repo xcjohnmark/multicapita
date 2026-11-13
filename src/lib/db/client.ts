@@ -1,21 +1,20 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { env } from "@/lib/env";
 
 /**
- * Prisma 7 requires a driver adapter. SQLite via better-sqlite3 keeps the project
- * runnable with `npm install` only — no Docker, no hosted database.
+ * Prisma 7 requires a driver adapter. PostgreSQL via node-postgres: Neon in production (pooled
+ * `DATABASE_URL`), a local Docker Postgres in development. See docs/adr/0007-postgres-on-vercel.md.
  *
- * Migrating to PostgreSQL later means changing the datasource provider, swapping this
- * adapter for `@prisma/adapter-pg`, and re-running migrations. No query in the app
- * depends on SQLite-specific behaviour.
+ * The client is cached on globalThis so dev hot-reloads and warm serverless invocations reuse one
+ * pool instead of opening a new set of connections per request.
  */
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export function getPrisma(): PrismaClient {
   if (!globalForPrisma.prisma) {
-    const adapter = new PrismaBetterSqlite3({ url: env.DATABASE_URL });
+    const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
     globalForPrisma.prisma = new PrismaClient({ adapter });
   }
   return globalForPrisma.prisma;

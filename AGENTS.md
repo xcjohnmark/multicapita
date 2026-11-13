@@ -50,7 +50,7 @@ src/lib/finance/         exact amounts, APY/cost maths — pure, unit-tested
 src/lib/policy/          deterministic guardrail engine — pure, unit-tested
 src/lib/ai/              NEAR AI Cloud orchestrator + typed tools
 src/lib/portfolio/       aggregation and valuation queries
-src/lib/db/client.ts     Prisma 7 + better-sqlite3 adapter
+src/lib/db/client.ts     Prisma 7 + node-postgres adapter (Neon on Vercel, Docker locally)
 prisma/schema.prisma     data model; migrations are committed
 ```
 
@@ -58,7 +58,8 @@ prisma/schema.prisma     data model; migrations are committed
 
 ```bash
 npm install
-npx prisma migrate dev      # creates/updates prisma/dev.db
+docker start capita-pg      # local Postgres on :5433 (see README for first-time docker run)
+npx prisma migrate dev      # applies/creates migrations against it
 npm run db:seed             # optional clearly-labelled sample portfolio
 npm run dev                 # http://localhost:3000
 npm test                    # vitest

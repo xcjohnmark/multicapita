@@ -3,7 +3,7 @@ import { getPrisma } from "@/lib/db/client";
 import { parseQuoteStatus, providerStatusToQuoteStatus } from "@/lib/domain/status";
 import { getClient } from "@/lib/near/registry";
 import { runPortfolioHealthCheck } from "@/lib/portfolio/monitoring";
-import { isSameOrigin } from "@/lib/http/origin";
+import { isCronAuthorized } from "@/lib/http/cron-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -86,20 +86,18 @@ async function runReconciliation() {
   };
 }
 
-export async function GET(request: Request) {
-  const auth = request.headers.get("authorization");
-  const expectedSecret = process.env.CRON_SECRET;
-  if (expectedSecret && auth !== `Bearer ${expectedSecret}` && !isSameOrigin(request)) {
+/**
+ * Vercel Cron calls GET with `Authorization: Bearer ${CRON_SECRET}`. POST is kept for manual
+ * triggering (e.g. `curl -X POST -H "Authorization: Bearer …"`) under the same rule. Same-origin is
+ * deliberately not accepted: a request with no Origin header passes that check.
+ */
+async function handle(request: Request) {
+  if (!isCronAuthorized(request.headers.get("authorization"), process.env.CRON_SECRET, process.env.NODE_ENV)) {
     return NextResponse.json({ error: { message: "Unauthorized reconciliation request." } }, { status: 401 });
   }
   const summary = await runReconciliation();
   return NextResponse.json(summary);
 }
 
-export async function POST(request: Request) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json({ error: { message: "Cross-origin request refused." } }, { status: 403 });
-  }
-  const summary = await runReconciliation();
-  return NextResponse.json(summary);
-}
+export const GET = handle;
+export const POST = handle;

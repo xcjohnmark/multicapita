@@ -54,7 +54,7 @@ flowchart LR
     POL["Policy engine<br/>deterministic"]
     FIN["Finance core<br/>exact amounts, costs"]
     PORT["Portfolio service"]
-    DB[("SQLite<br/>Prisma 7")]
+    DB[("PostgreSQL<br/>Prisma 7")]
   end
 
   subgraph External
@@ -90,11 +90,12 @@ Three boundaries carry the design:
 
 ## Run it
 
-Requires Node 20+. No Docker, no database server, no paid account, no API key.
+Requires Node 20+ and Docker (for a local Postgres). No paid account, no API key.
 
 ```bash
 npm install
-npx prisma migrate dev        # creates prisma/dev.db and applies the committed migration
+docker run -d --name capita-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=capita -p 5433:5432 postgres:17
+npx prisma migrate deploy     # applies the committed migrations to the local Postgres
 npm run db:seed               # optional: labelled sample portfolio so the UI has content
 npm run dev                   # http://localhost:3000
 ```
@@ -154,11 +155,12 @@ On Windows, PowerShell may block `npm.ps1`. Use `npm.cmd` / `npx.cmd`, or prefix
 
 ## Configuration
 
-Copy `.env.example` to `.env`. Everything is optional except `DATABASE_URL`.
+Copy `.env.example` to `.env`. Everything is optional locally; the database defaults to the Docker Postgres above.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | `file:./prisma/dev.db` | SQLite file location |
+| `DATABASE_URL` | `postgresql://postgres:postgres@localhost:5433/capita` | Pooled Postgres URL. On Vercel it is read from the Neon integration (`NEON_MCAP_DATABASE_URL`); migrations use the unpooled URL |
+| `CRON_SECRET` | *(empty)* | Required in production: bearer secret Vercel Cron sends to `/api/cron/reconcile` |
 | `APP_DATA_MODE` | `sample` | `sample` \| `dry_run` \| `live` — controls which data sources are allowed |
 | `NEARAI_API_KEY` | *(empty)* | NEAR AI Cloud key. Without it the AI layer uses its deterministic fallback planner |
 | `NEAR_AI_MODEL` | `z-ai/glm-5.3-flash` | 1M context, tool calling, structured outputs, $0.08/$0.50 per M tokens |
@@ -250,8 +252,8 @@ Key decisions: [stack](docs/adr/0001-stack.md) ·
 
 ## Known limitations
 
-- **Not deployable to a serverless host** with an ephemeral filesystem: SQLite is a local file.
-  This is a deliberate trade for reproducibility — see ADR-0001.
+- **Deployed on Vercel with Neon Postgres** (ADR-0007). On the Hobby plan the reconciliation
+  cron runs once a day; the `/execute` page still polls settlement status live.
 - **Only cross-chain USDC is executable today.** A 1Click swap settles one leg. Lending, LP, vault,
   and tokenized-equity legs are specified in `project-docs/prd.md` and `project-docs/build-guide.md`
   and will become executable as their destination protocol and DEX/RFQ adapters are wired; the UI
