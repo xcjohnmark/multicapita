@@ -521,7 +521,7 @@ export async function inspectTraderWallet(rawInput: string): Promise<TraderInspe
   }
 
   if (ecosystem === "near") {
-    let nearUsdNotes: string[] = [];
+    const nearUsdNotes: string[] = [];
     const positions: TraderPositionItem[] = [];
     try {
       const res = await fetch(NEAR_PUBLIC_RPC, {

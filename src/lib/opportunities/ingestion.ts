@@ -184,6 +184,18 @@ export async function syncOpportunities(): Promise<SyncResult> {
           select: { id: true },
         });
 
+    // Append-only history for sparklines; one row per sync, carrying the row's own provenance.
+    await prisma.opportunityObservation.create({
+      data: {
+        opportunityId: record.id,
+        observedAt: c.observedAt ?? now,
+        rate: c.estimatedApy,
+        tvlUsd: c.tvlUsd ?? null,
+        source: typeof c.sourcePayload.provider === "string" ? c.sourcePayload.provider : c.protocolSlug,
+        dataMode: c.dataMode,
+      },
+    });
+
     savedOpportunities.push({
       id: record.id,
       strategyType: c.strategyType,

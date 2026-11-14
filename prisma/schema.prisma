@@ -66,6 +66,7 @@ model User {
   auditEvents       AuditEvent[]
   idempotencyKeys   IdempotencyKey[]
   copySubscriptions CopySubscription[]
+  executionPlans    ExecutionPlan[]
 }
 
 model Wallet {
@@ -197,11 +198,31 @@ model Opportunity {
   expiresAt          DateTime?
   status             String   @default("active") // active | stale | unsupported | rejected
 
-  protocol    Protocol             @relation(fields: [protocolId], references: [id])
-  allocations StrategyAllocation[]
+  protocol     Protocol                 @relation(fields: [protocolId], references: [id])
+  allocations  StrategyAllocation[]
+  observations OpportunityObservation[]
+  plans        ExecutionPlan[]
 
   @@index([strategyType, chainId, status])
   @@index([observedAt])
+}
+
+/**
+ * Append-only history of an opportunity's headline rate and TVL, one row per sync. Sparklines
+ * and the detail chart draw only from these rows; nothing is interpolated or invented.
+ */
+model OpportunityObservation {
+  id            String   @id @default(cuid())
+  opportunityId String
+  observedAt    DateTime
+  rate          Float?
+  tvlUsd        Float?
+  source        String
+  dataMode      String // live | sample
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId, observedAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -382,6 +403,10 @@ model Position {
   realisedPnlUsd      Float?
   unrealisedPnlUsd    Float?
   status              String   @default("open") // open | closed | pending | partial
+  /** live = reconciled from chain; sample = seeded demo row; dry_run = produced by a simulated plan. */
+  dataMode            String   @default("live")
+  /** Set only on simulated positions: the `capita_sim` session that created it. */
+  simulationKey       String?
   openedAt            DateTime @default(now())
   lastSyncedAt        DateTime?
 
@@ -389,8 +414,10 @@ model Position {
   protocol      Protocol           @relation(fields: [protocolId], references: [id])
   receiptToken  Token?             @relation(fields: [receiptTokenId], references: [id], onDelete: SetNull)
   snapshots     PositionSnapshot[]
+  plans         ExecutionPlan[]
 
   @@index([userId, status])
+  @@index([userId, simulationKey])
 }
 
 model PositionSnapshot {
@@ -507,4 +534,76 @@ model CopySubscription {
 
   @@unique([userId, trackedTraderId])
   @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Execution plans — one user intent (lend, swap, withdraw, a strategy) as ordered steps
+// ---------------------------------------------------------------------------
+
+/**
+ * A plan is what the Execute button creates. Steps run one after another; each settles on its
+ * own (no atomicity across steps). Outside live mode a plan is `simulated`: quotes and calldata
+ * are real, settlement is a labelled simulation, and nothing is broadcast.
+ */
+model ExecutionPlan {
+  id                   String    @id @default(cuid())
+  userId               String
+  /** `capita_sim` cookie of the browser session that owns a simulated plan. */
+  simulationKey        String?
+  kind                 String // opportunity_entry | position_exit | position_add | swap | send | strategy | copy
+  title                String
+  opportunityId        String?
+  positionId           String?
+  proposalId           String?
+  inputJson            Json
+  previewJson          Json?
+  dataMode             String // live | dry_run | sample
+  simulated            Boolean
+  status               String    @default("draft") // draft | approved | running | paused | completed | failed | cancelled
+  sourceChainId        Int
+  sourceTokenAddress   String
+  sourceSymbol         String
+  amountAtomic         String
+  amountDecimals       Int
+  amountUsd            Float?
+  approvedAt           DateTime?
+  approvedAmountAtomic String?
+  completedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opportunity Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  position    Position?     @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  steps       ExecutionStep[]
+
+  @@index([userId, simulationKey, createdAt])
+  @@index([status])
+}
+
+model ExecutionStep {
+  id              String    @id @default(cuid())
+  planId          String
+  index           Int
+  type            String // bridge | swap | approve | supply | withdraw | vault_deposit | vault_redeem | lp_mint | lp_collect | equity_buy | equity_sell | transfer | record
+  chainId         Int
+  title           String
+  status          String    @default("pending") // pending | ready | awaiting_signature | submitted | settling | done | failed | refunded | skipped
+  simulated       Boolean
+  amountAtomic    String?
+  decimals        Int?
+  symbol          String?
+  quoteId         String?
+  txHash          String?
+  /** `sim-…` reference for simulated steps. Never shaped like a real transaction hash. */
+  simulationRef   String?
+  instructionJson Json?
+  resultJson      Json?
+  error           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  plan ExecutionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, index])
 }

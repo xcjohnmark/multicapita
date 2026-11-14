@@ -130,6 +130,66 @@ export async function prepareCrossChainMove(input: PrepareMoveInput): Promise<Pr
   };
 }
 
+/**
+ * Committed quote for any catalogue pair on the supported EVM chains (execution plans: swap, send,
+ * cross-chain leg). Same invariants as `prepareCrossChainMove`: the caller has passed policy and
+ * collected approval; the refund goes to the connected wallet; the deposit instruction is built
+ * from the quote's own amount. The recipient may differ from the wallet only for a Send, where
+ * the user typed it and the server validated it.
+ */
+export async function prepareCommittedSwap(input: {
+  origin: OneClickToken;
+  destination: OneClickToken;
+  originChainId: number;
+  amountAtomic: bigint;
+  walletAddress: Address;
+  recipient: Address;
+  slippageBps: number;
+  now?: Date;
+  client?: ReturnType<typeof getClient>;
+}): Promise<PreparedMove> {
+  const originChain = getChain(input.originChainId);
+  if (!originChain) {
+    throw new OneClickError("Deposits are only supported from Base and Arbitrum.", { httpStatus: 400 });
+  }
+  if (input.amountAtomic <= 0n) {
+    throw new OneClickError("The amount must be greater than zero.", { httpStatus: 400 });
+  }
+  if (!isAddress(input.walletAddress, { strict: false }) || !isAddress(input.recipient, { strict: false })) {
+    throw new OneClickError("Wallet or recipient address is not valid.", { httpStatus: 400 });
+  }
+  if (input.slippageBps < 0 || input.slippageBps > 10_000) {
+    throw new OneClickError("Slippage tolerance is out of range.", { httpStatus: 400 });
+  }
+  const now = input.now ?? new Date();
+  const client = input.client ?? getClient();
+  const quote = await client.createQuote({
+    dry: false,
+    swapType: "EXACT_INPUT",
+    slippageTolerance: input.slippageBps,
+    originAsset: input.origin.assetId,
+    destinationAsset: input.destination.assetId,
+    amount: input.amountAtomic.toString(),
+    depositType: "ORIGIN_CHAIN",
+    recipient: input.recipient,
+    recipientType: "DESTINATION_CHAIN",
+    refundTo: input.walletAddress,
+    refundType: "ORIGIN_CHAIN",
+    deadline: new Date(now.getTime() + QUOTE_TTL_MS).toISOString(),
+  });
+  if (BigInt(quote.quote.amountIn) !== input.amountAtomic) {
+    throw new OneClickError("The committed quote's input does not match the approved amount.", { httpStatus: 409 });
+  }
+  const instruction = buildDepositInstruction(quote, input.origin, originChain.id, originChain.explorerUrl);
+  return {
+    quote,
+    origin: input.origin,
+    destination: input.destination,
+    instruction,
+    deadline: quote.quote.deadline ?? new Date(now.getTime() + QUOTE_TTL_MS).toISOString(),
+  };
+}
+
 export function buildDepositInstruction(
   quote: OneClickQuote,
   originToken: OneClickToken,

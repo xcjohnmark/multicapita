@@ -17,7 +17,11 @@ const STRATEGY_LABELS: Record<string, string> = {
   cash: "Available",
 };
 
-export async function getPortfolioOverview(userId: string) {
+/**
+ * `simulationScope` adds that browser session's simulated positions; without it, simulated rows
+ * are excluded so one demo visitor never sees another's simulated deposits.
+ */
+export async function getPortfolioOverview(userId: string, options: { simulationScope?: string | null } = {}) {
   const prisma = getPrisma();
 
   const user = await prisma.user.findUnique({
@@ -48,7 +52,12 @@ export async function getPortfolioOverview(userId: string) {
   }
 
   const positions = await prisma.position.findMany({
-    where: { userId: user.id },
+    where: {
+      userId: user.id,
+      OR: options.simulationScope
+        ? [{ simulationKey: null }, { simulationKey: options.simulationScope }]
+        : [{ simulationKey: null }],
+    },
     include: { protocol: true, receiptToken: true },
     orderBy: { currentValueUsd: "desc" },
   });

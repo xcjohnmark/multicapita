@@ -5,8 +5,8 @@ const PRODUCT_LINKS = [
   { href: "/app", label: "Overview" },
   { href: "/opportunities", label: "Opportunities" },
   { href: "/strategy", label: "Strategy" },
-  { href: "/execute", label: "Execute" },
-  { href: "/copytrading", label: "Copytrading" },
+  { href: "/swap", label: "Swap" },
+  { href: "/opportunities/copytrading", label: "Copytrading" },
 ];
 
 const RESOURCE_LINKS = [

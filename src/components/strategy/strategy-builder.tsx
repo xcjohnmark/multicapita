@@ -200,7 +200,7 @@ export function StrategyBuilder({
                   key={preset.label}
                   type="button"
                   onClick={() => setObjective(preset.text)}
-                  className={`chip cursor-pointer transition-colors duration-100 hover:border-line-strong hover:text-ink ${
+                  className={`chip min-h-10 cursor-pointer px-3 transition-colors sm:min-h-0 duration-100 hover:border-line-strong hover:text-ink ${
                     objective === preset.text ? "border-ink bg-surface-raised text-ink" : ""
                   }`}
                 >

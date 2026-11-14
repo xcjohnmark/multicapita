@@ -54,6 +54,23 @@ to success.
 **Atomicity (do not over-claim)** — A single 1Click swap settles one leg. A multi-leg strategy is
 a sequence of independently confirmed steps with real failure and refund states in between.
 
+**Explore vs Execute** — *Explore* opens an opportunity's detail page: research, nothing moves.
+*Execute* builds a plan from a fresh quote and the guardrails; nothing runs until the user approves
+the exact amount.
+
+**Plan** — What one Execute click creates (`ExecutionPlan`): an ordered list of steps for one intent
+(lend, deposit, swap, send, withdraw). Draft → approved (running) → completed / failed / cancelled.
+A strategy becomes one plan per leg.
+
+**Step** — One independently settling action inside a plan (`ExecutionStep`): bridge, swap,
+approve, supply, deposit, record… A later step is sized from the previous leg's guaranteed minimum,
+never from the typed amount.
+
+**Simulated** — Settlement that did not happen on-chain. Outside live mode (and always for the demo
+account) quotes and calldata are real but settlement is a labelled, time-based simulation; its steps
+carry `sim-…` references, never transaction hashes, and its positions are `dataMode: "dry_run"`,
+scoped to one browser (or one signed-in wallet).
+
 ## Strategies
 
 **Yield vault** — Deposit an asset, receive a receipt/share token whose price or exchange rate

@@ -102,7 +102,7 @@ export async function LiveMarketsSection() {
                 Rates appear here after the market sync runs. Capita does not fill this table with
                 placeholder numbers.
               </p>
-              <Link href="/opportunities" className="btn btn-secondary mt-6 h-10 px-4">
+              <Link href="/opportunities/lending" className="btn btn-secondary mt-6 h-10 px-4">
                 Open opportunities
               </Link>
             </div>

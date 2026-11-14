@@ -23,6 +23,9 @@ const DEMO_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 async function main() {
   // Idempotent: clear previous demo rows in dependency order.
+  await prisma.executionStep.deleteMany();
+  await prisma.executionPlan.deleteMany();
+  await prisma.opportunityObservation.deleteMany();
   await prisma.positionSnapshot.deleteMany();
   await prisma.position.deleteMany();
   await prisma.quote.deleteMany();
@@ -247,6 +250,66 @@ async function main() {
     ],
   });
 
+  const moonwell = await prisma.protocol.create({
+    data: { slug: "moonwell", name: "Moonwell", protocolType: "vault", websiteUrl: "https://moonwell.fi", docsUrl: "https://docs.moonwell.fi", riskNotes: "Overcollateralized lending and vault protocol on Base.", isAllowlisted: true },
+  });
+  const ondo = await prisma.protocol.create({
+    data: { slug: "ondo", name: "Ondo Finance", protocolType: "aggregator", websiteUrl: "https://ondo.finance", docsUrl: "https://docs.ondo.finance", riskNotes: "Custody-backed tokenized equity entitlements; non-voting.", isAllowlisted: true },
+  });
+  const dinari = await prisma.protocol.create({
+    data: { slug: "dinari", name: "Dinari dShares", protocolType: "aggregator", websiteUrl: "https://dinari.com", docsUrl: "https://docs.dinari.com", riskNotes: "1:1 custody-backed tokenized shares on Arbitrum One.", isAllowlisted: true },
+  });
+  const tether = await prisma.protocol.create({
+    data: { slug: "tether", name: "Tether Gold (XAUT)", protocolType: "aggregator", websiteUrl: "https://gold.tether.to", docsUrl: "https://gold.tether.to", riskNotes: "Physical gold-backed token.", isAllowlisted: true },
+  });
+
+  const SAMPLE = { provider: "sample fixture", note: "not live market data" };
+  await prisma.opportunity.createMany({
+    data: [
+      // Vault addresses are the verified ones in src/lib/opportunities/vaults.ts; rates are fixtures.
+      { strategyType: "yield_vault", protocolId: earn.id, chainId: 8453, tokenOrPairRef: "USDC → sparkUSDC", marketOrPoolAddress: "0x7bfa7c4f149e7415b73bded8f86d209f99b54846", estimatedApy: 4.04, rateType: "APY", tvlUsd: 353_000_000, dataMode: "sample", observedAt: now, status: "active", riskFlags: ["share_price_changes", "third_party_vault"], sourcePayload: SAMPLE },
+      { strategyType: "yield_vault", protocolId: moonwell.id, chainId: 8453, tokenOrPairRef: "USDC → mwUSDC", marketOrPoolAddress: "0xedc817a28e8b93b03976fbd4a3ddbc9f7d176c22", estimatedApy: 5.2, rateType: "APY", tvlUsd: 85_000_000, dataMode: "sample", observedAt: now, status: "active", riskFlags: ["share_price_changes"], sourcePayload: SAMPLE },
+      { strategyType: "stablecoin_lp", protocolId: aerodrome.id, chainId: 8453, tokenOrPairRef: "EURC / USDC 0.01%", marketOrPoolAddress: "0x6eaec4f69c92bd16a4b018ceb6fe7a446a113598", estimatedApy: 3.4, rateType: "APR", tvlUsd: 348_000, volume24hUsd: 3_200_000, dataMode: "sample", observedAt: now, status: "active", riskFlags: ["stablecoin_depeg", "concentrated_liquidity"], sourcePayload: SAMPLE },
+      // Tokenized assets: contracts from VERIFIED_TOKENIZED_ASSETS; prices are labelled fixtures.
+      ...[
+        { protocolId: ondo.id, chainId: 1, ref: "NVDAon", address: "0x2D1F7226Bd1F780AF6B9A49DCC0aE00E8Df4bDEE", nav: 180, spread: 35 },
+        { protocolId: ondo.id, chainId: 1, ref: "AAPLon", address: "0x14c3abF94bcC9698967923418526543Cb87b2d4c", nav: 230, spread: 28 },
+        { protocolId: tether.id, chainId: 1, ref: "XAUT", address: "0x68749665FF8D2d112Fa859AA293F07A622782F38", nav: 3300, spread: 12 },
+        { protocolId: dinari.id, chainId: 42161, ref: "NVDA.d", address: "0x4DaFFfDDEa93DdF1e0e7B61E844331455053Ce5c", nav: 180, spread: 44 },
+        { protocolId: dinari.id, chainId: 42161, ref: "AAPL.d", address: "0xCe38e140fC3982a6bCEbc37b040913EF2Cd6C5a7", nav: 230, spread: 51 },
+      ].map((asset) => ({
+        strategyType: "tokenized_equity",
+        protocolId: asset.protocolId,
+        chainId: asset.chainId,
+        tokenOrPairRef: asset.ref,
+        marketOrPoolAddress: asset.address,
+        estimatedApy: null,
+        rateType: "reference_nav_exposure",
+        liquidityUsd: 2_000_000,
+        dataMode: "sample",
+        observedAt: now,
+        status: "active",
+        riskFlags: ["issuer_orderbook_only"],
+        sourcePayload: { ...SAMPLE, referenceNavUsd: asset.nav, dexPriceUsd: asset.nav * (1 + asset.spread / 10_000), navDeviationBps: asset.spread },
+      })),
+    ],
+  });
+
+  // Sample rate history so sparklines render offline. Labelled sample; never shown as live.
+  const rated = await prisma.opportunity.findMany({ where: { estimatedApy: { not: null } }, select: { id: true, estimatedApy: true, tvlUsd: true } });
+  for (const row of rated) {
+    await prisma.opportunityObservation.createMany({
+      data: Array.from({ length: 10 }, (_, i) => ({
+        opportunityId: row.id,
+        observedAt: new Date(now.getTime() - (9 - i) * 6 * 60 * 60 * 1000),
+        rate: Number(((row.estimatedApy ?? 0) * (0.92 + 0.08 * Math.sin(i / 1.7) + i * 0.006)).toFixed(3)),
+        tvlUsd: row.tvlUsd,
+        source: "sample fixture",
+        dataMode: "sample",
+      })),
+    });
+  }
+
   const user = await prisma.user.create({ data: { email: DEMO_USER_EMAIL } });
 
   // A real, database-backed guardrail set — not the in-code defaults. The policy engine reads
@@ -394,6 +457,7 @@ async function main() {
         accruedReturnUsd: p.accruedReturnUsd,
         unrealisedPnlUsd: p.unrealisedPnlUsd,
         status: "open",
+        dataMode: "sample",
         openedAt: new Date(now.getTime() - 46 * 24 * 60 * 60 * 1000),
         lastSyncedAt: now,
       },

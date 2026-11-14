@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Onest, JetBrains_Mono, Manufacturing_Consent } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/shell/app-shell";
-import { getShellSession } from "@/lib/shell-state";
+import { WalletProvider } from "@/components/wallet/wallet-provider";
 
 // Onest regular for everything, 500 for buttons/tags/card titles (DESIGN.md §0).
 const onest = Onest({
@@ -40,18 +39,16 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // Session and mode are resolved once here so the header can never show a stale or invented
-  // state. Reading cookies makes the shell dynamic, which is the correct trade for honesty.
-  const session = await getShellSession();
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  // Each route group renders its own chrome: (platform) the near.com hero + tabs, (detail) a
+  // compact header, (flow) a narrow centred column. The landing page brings its own navbar.
   return (
     <html
       lang="en"
       className={`h-full ${onest.variable} ${jetbrainsMono.variable} ${manufacturingConsent.variable} antialiased selection:bg-green-500 selection:text-black light`}
     >
       <body className="relative isolate min-h-full bg-canvas font-sans text-ink">
-        <AppShell session={session}>{children}</AppShell>
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   );

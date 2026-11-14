@@ -40,12 +40,13 @@ These are correctness constraints, not style preferences. Breaking one is a defe
 ## Architecture
 
 ```
-src/app/                 Next.js App Router — pages + route handlers (one deployable app)
+src/app/                 App Router: (platform) hero+tabs · (detail) explore pages · (flow) wallet flows, tracker
 src/app/api/             server-only HTTP surface
 src/components/          UI (shell, primitives)
 src/lib/env.ts           zod-validated server config
 src/lib/chains.ts        Base (8453) + Arbitrum One (42161) scope
 src/lib/near/            1Click client, quote lifecycle, route preview
+src/lib/execution/plan/  execution plans: build steps, preview, approve, simulate, live step runner
 src/lib/finance/         exact amounts, APY/cost maths — pure, unit-tested
 src/lib/policy/          deterministic guardrail engine — pure, unit-tested
 src/lib/ai/              NEAR AI Cloud orchestrator + typed tools

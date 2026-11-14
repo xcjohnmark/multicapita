@@ -95,12 +95,20 @@ export async function POST(request: Request) {
   const prisma = getPrisma();
   const address = fields.address.toLowerCase();
 
-  const user = await prisma.user.upsert({
-    where: { address },
-    create: { address },
-    update: {},
-    select: { id: true, email: true },
+  // A wallet verified-linked to another account signs into that account; otherwise the address
+  // has (or gets) its own account.
+  const linked = await prisma.wallet.findFirst({
+    where: { address, ownershipVerifiedAt: { not: null }, user: { OR: [{ address: null }, { address: { not: address } }] } },
+    select: { user: { select: { id: true, email: true } } },
   });
+  const user =
+    linked?.user ??
+    (await prisma.user.upsert({
+      where: { address },
+      create: { address },
+      update: {},
+      select: { id: true, email: true },
+    }));
 
   const now = new Date();
   for (const chainId of [8453, 42161]) {
@@ -112,7 +120,7 @@ export async function POST(request: Request) {
         address,
         chainFamily: "evm",
         ownershipVerifiedAt: now,
-        label: "Signed-in wallet",
+        label: linked ? "Linked wallet" : "Signed-in wallet",
       },
       update: { ownershipVerifiedAt: now },
     });

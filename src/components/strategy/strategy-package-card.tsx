@@ -5,15 +5,15 @@ import { useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
-  CheckCircle2,
   ChevronDown,
   Layers,
-  Loader2,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
 } from "lucide-react";
 import { ChainBadge, StatusDot } from "@/components/ui/primitives";
+import { StrategyExecute } from "./strategy-execute";
+import { tabForStrategy } from "@/lib/opportunities/tabs";
 import { formatPercent, formatUsd } from "@/lib/format";
 
 export type StrategyCategory =
@@ -175,39 +175,6 @@ export function StrategyPackageCard({
   customizeOpen: boolean;
 }) {
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
-  const [approving, setApproving] = useState(false);
-  const [approveError, setApproveError] = useState<string | null>(null);
-  const [stagedLinks, setStagedLinks] = useState<Array<{
-    allocationId: string;
-    step: number;
-    label: string;
-    chainId: number;
-    amountUsd: number;
-    href: string;
-  }> | null>(null);
-
-  async function approveStrategy() {
-    setApproving(true);
-    setApproveError(null);
-    try {
-      const res = await fetch("/api/strategy/approve", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ proposalId: result.id }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setApproveError(json.error?.message ?? "Could not approve strategy.");
-        return;
-      }
-      setStagedLinks(json.data?.stageLinks ?? []);
-    } catch {
-      setApproveError("Network error approving strategy.");
-    } finally {
-      setApproving(false);
-    }
-  }
-
   const { evaluation, proposal } = result;
   const violations = [...evaluation.violations].sort(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
@@ -237,12 +204,6 @@ export function StrategyPackageCard({
     proposal.decisionPoints ??
     proposal.requiresUserInput;
 
-  const primaryLeg = evaluation.legs[0];
-  const executeHref = primaryLeg
-    ? `/execute?direction=${
-        primaryLeg.chainName.toLowerCase().includes("arb") ? "base-to-arb" : "arb-to-base"
-      }&amount=${Math.max(1, Math.round(primaryLeg.amountUsd))}`
-    : "/execute";
 
   return (
     <section className="panel overflow-hidden">
@@ -282,7 +243,7 @@ export function StrategyPackageCard({
       </div>
 
       {/* 3-Column KPI Strip */}
-      <div className="grid grid-cols-3 divide-x divide-line border-b border-line bg-surface">
+      <div className="grid grid-cols-1 divide-y divide-line border-b border-line bg-surface sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <div className="px-5 py-3.5">
           <p className="eyebrow">Est. Target APY</p>
           <p className="metric mt-1 text-xl font-medium text-accent-text" data-numeric>
@@ -376,13 +337,13 @@ export function StrategyPackageCard({
       </div>
 
       {/* Action Bar: Customize Plan | Deep Dive | Execute */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface px-5 py-3.5">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3 border-t border-line bg-surface px-5 py-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <button
             type="button"
             onClick={onOpenCustomize}
             aria-expanded={customizeOpen}
-            className={`btn h-9 px-3.5 text-xs ${
+            className={`btn h-11 px-3.5 text-sm sm:h-9 sm:text-xs ${
               customizeOpen ? "btn-highlight" : "btn-secondary"
             }`}
           >
@@ -394,7 +355,7 @@ export function StrategyPackageCard({
             type="button"
             onClick={() => setDeepDiveOpen((prev) => !prev)}
             aria-expanded={deepDiveOpen}
-            className="btn btn-secondary h-9 px-3.5 text-xs"
+            className="btn btn-secondary h-11 px-3.5 text-sm sm:h-9 sm:text-xs"
           >
             <Layers className="size-3.5" strokeWidth={1.5} aria-hidden />
             <span>Deep dive</span>
@@ -407,77 +368,50 @@ export function StrategyPackageCard({
         </div>
 
         {evaluation.ok && evaluation.legs.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={approveStrategy}
-              disabled={approving || Boolean(stagedLinks)}
-              className={`btn h-9 px-4 text-xs ${stagedLinks ? "btn-secondary text-accent-text" : "btn-primary"}`}
-            >
-              {approving ? (
-                <Loader2 className="size-3.5 animate-spin" strokeWidth={1.5} aria-hidden />
-              ) : (
-                <CheckCircle2 className="size-3.5" strokeWidth={1.5} aria-hidden />
-              )}
-              <span>
-                {stagedLinks
-                  ? "Approved & Staged"
-                  : approving
-                    ? "Approving…"
-                    : "Approve & Stage Strategy"}
-              </span>
-            </button>
-            <Link href={executeHref} className="btn btn-accent h-9 px-4 text-xs">
-              <span>Review in Execution Console</span>
-              <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
-            </Link>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center [&>button]:w-full sm:[&>button]:w-auto">
+            <StrategyExecute proposalId={result.id} />
           </div>
         ) : (
-          <button type="button" disabled className="btn btn-secondary h-9 px-4 text-xs">
-            <span>Blocked by policy engine</span>
+          <button type="button" disabled className="btn btn-secondary h-11 w-full px-5 sm:w-auto">
+            <span>Blocked by guardrails</span>
           </button>
         )}
       </div>
 
-      {approveError ? (
-        <div className="border-t border-line bg-red-50/70 px-5 py-2.5 text-xs text-danger-text">
-          {approveError}
-        </div>
-      ) : null}
-
-      {stagedLinks && stagedLinks.length > 0 ? (
-        <div className="border-t border-line bg-green-50/40 px-5 py-4 space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-medium text-accent-text flex items-center gap-1.5">
-              <CheckCircle2 className="size-3.5" />
-              Strategy approved — execute each non-atomic leg in sequence:
-            </p>
-            <span className="text-xs text-ink-muted">No claimed cross-chain atomicity</span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {stagedLinks.map((leg) => (
-              <Link
-                key={leg.allocationId}
-                href={leg.href}
-                className="flex items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-2 text-xs hover:border-line-strong"
-              >
-                <span className="truncate font-medium text-ink">
-                  Step {leg.step}: {leg.label} ({formatUsd(leg.amountUsd)})
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1 text-accent-text font-medium">
-                  Stage <ArrowRight className="size-3" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       {/* Deep Dive Breakdown */}
       {deepDiveOpen ? (
         <div className="border-t border-line bg-canvas">
           {evaluation.legs.length > 0 ? (
-            <div className="overflow-x-auto border-b border-line">
+            <>
+            {/* Phones: one card per leg. Tablet and up: the full table. */}
+            <ul className="divide-y divide-line-faint border-b border-line md:hidden">
+              {evaluation.legs.map((leg) => (
+                <li key={leg.opportunityId} className="space-y-2 px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 font-medium text-ink">
+                      {leg.protocolName} · {leg.asset}
+                    </p>
+                    <p className="shrink-0 text-right font-medium text-ink tabular-nums">{formatUsd(leg.amountUsd)}</p>
+                  </div>
+                  <p className="text-sm text-ink-muted">{leg.rationale}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm text-ink-secondary tabular-nums">
+                      <ChainBadge chainId={leg.chainId} label={leg.chainName} />
+                      {formatPercent(leg.expectedRatePercent)} · {(leg.weightBps / 100).toFixed(1)}%
+                    </span>
+                    <Link
+                      href={`/opportunities/${tabForStrategy(leg.strategyType)}/${leg.opportunityId}`}
+                      className="btn btn-secondary h-10 px-3 text-sm"
+                    >
+                      Explore
+                      <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto border-b border-line md:block">
               <table className="w-full min-w-[680px] text-sm">
                 <thead>
                   <tr className="border-b border-line bg-surface text-left">
@@ -515,15 +449,11 @@ export function StrategyPackageCard({
                       </td>
                       <td className="px-5 py-3 text-right">
                         <Link
-                          href={`/execute?direction=${
-                            leg.chainName.toLowerCase().includes("arb")
-                              ? "base-to-arb"
-                              : "arb-to-base"
-                          }&amount=${Math.max(1, Math.round(leg.amountUsd))}`}
-                          className="btn btn-secondary h-7 px-2.5 text-xs"
+                          href={`/opportunities/${tabForStrategy(leg.strategyType)}/${leg.opportunityId}`}
+                          className="btn btn-secondary h-8 px-3 text-sm"
                         >
-                          <span>Move</span>
-                          <ArrowRight className="size-3" strokeWidth={1.5} aria-hidden />
+                          <span>Explore</span>
+                          <ArrowRight className="size-3.5" strokeWidth={1.5} aria-hidden />
                         </Link>
                       </td>
                     </tr>
@@ -531,6 +461,7 @@ export function StrategyPackageCard({
                 </tbody>
               </table>
             </div>
+            </>
           ) : null}
 
           <div className="grid gap-5 px-5 py-4 lg:grid-cols-2">

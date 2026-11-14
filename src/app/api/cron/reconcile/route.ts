@@ -63,7 +63,7 @@ async function runReconciliation() {
 
   // 3. Health checks for users with open positions
   const openPosUsers = await prisma.position.findMany({
-    where: { status: "open" },
+    where: { status: "open", simulationKey: null },
     select: { userId: true },
     distinct: ["userId"],
     take: 25,

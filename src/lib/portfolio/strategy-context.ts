@@ -35,7 +35,8 @@ export async function loadStrategyContext(userId: string): Promise<StrategyConte
       include: { balances: { include: { token: true } } },
     }),
     prisma.position.findMany({
-      where: { userId },
+      // Simulated positions are a demo overlay, not holdings the planner may build on.
+      where: { userId, simulationKey: null },
       include: { protocol: true, receiptToken: true },
     }),
     prisma.opportunity.findMany({

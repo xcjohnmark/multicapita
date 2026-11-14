@@ -49,6 +49,10 @@ export async function POST(request: Request) {
   if (!viewer) {
     return NextResponse.json({ error: { message: "Sign in to configure copytrading." } }, { status: 401 });
   }
+  // The demo account is shared by every anonymous visitor; copy rules belong to a signed-in wallet.
+  if (viewer.demo) {
+    return NextResponse.json({ error: { message: "Sign in to set copy rules." } }, { status: 403 });
+  }
 
   let body: unknown;
   try {

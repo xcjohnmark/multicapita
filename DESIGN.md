@@ -22,6 +22,21 @@ Source: the free **Nouva** Framer template ([marketplace](https://www.framer.com
 
 **Honesty constraints stay absolute:** marketing sections never show rates, APYs or "live" data unless they are read from the database with source + timestamp (see `src/components/landing/live-markets.tsx`); empty states say data hasn't been synced rather than showing placeholders.
 
+## 0.1 near.com Shell (logged-in platform — overrides §4.2 and §7.2)
+
+The platform (everything behind `/app`) follows near.com/home: a user flow you click through, not a console you read.
+
+- **Hero band** (`src/components/shell/platform-header.tsx`): the **one sanctioned dark surface**, `--color-hero #262626`. Total balance (hide toggle, per-browser), Available / Deployed, then **Receive** (white `btn-hero-primary`) · **Send** · **Swap** (dark `btn-hero`). Icon actions top-right: mode/limits (info), search (⌘K), activity, account.
+- **Top tabs** (`top-tabs.tsx`): Home · Opportunities · Positions · Strategy · Activity. `.tab-link`, ink underline on the active tab, sticky, horizontal scroll on phones.
+- **Mode strip**: a slim line under the tabs whenever data or settlement isn't live (AGENTS.md rule 3). Never removed.
+- **Route groups**: `(platform)` hero + tabs · `(detail)` compact header (opportunity and position detail) · `(flow)` narrow 640px column with a floating round back button (`.fab-back`): Receive, Send, Swap, plan tracker, Settings, Sign in.
+- **Card grids** (`.card-tile`, 16px radius, 1px line, border darkens on hover, `min-width: 0`): one card per opportunity, overview only — icon, name, network, one headline number, two facts, **Explore** bottom-right. Grids always declare `grid-cols-1` as the base so cards shrink on phones.
+- **Toolbar**: network chips (`.chip-filter`), search, sort select, grid/table toggle. All state in the URL.
+- **Detail pages**: metrics left, sticky action panel right (stacked on mobile). The panel is the only place money moves: pay-with picker → big amount input → (slippage only when a cross-chain leg exists) → live preview rows → guardrails summary → one full-width primary button whose label says why it is disabled.
+- **Execute** always opens an AlertDialog listing the steps and the exact amount, says "not one atomic transaction" when there are several steps, then routes to the plan tracker (vertical stepper).
+- **Labels**: `Sample` (amber) for seeded data, `Simulated` (violet) for anything a simulated plan produced. Tone always pairs with text.
+- **Copy**: short labels, no explanatory paragraphs on cards. One sentence of help at most, under the thing it explains.
+
 ---
 
 ## 1. Platform Identity & Branding
@@ -156,7 +171,7 @@ Built **desktop-first** to mirror `near.com/home`'s `#dashboard` shell, then sca
 | `space-6` | `24px` (`gap-6`, `space-y-6`) | Grid gap between cards and major vertical section stack |
 | `space-8` | `32px` (`px-8`, `py-8`) | Desktop outer workspace padding |
 
-### 4.2 Shell & `#dashboard` Layout Structure (Desktop-First)
+### 4.2 Shell & `#dashboard` Layout Structure (superseded by §0.1 — kept for history)
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -273,7 +288,7 @@ outline-offset-2 focus-visible:outline-2 rounded-lg
   - **Secondary (Outline):** `bg-white text-gray-900 border border-gray-300 outline-gray-900 hover:not-disabled:bg-gray-50`
   - **Danger:** `bg-red-500 text-white outline-red-500 hover:not-disabled:bg-red-600`
 
-### 7.2 Navigation Items (Sidebar)
+### 7.2 Navigation Items (Sidebar — superseded by §0.1 top tabs)
 
 Exact `near.com/home` link geometry adapted to White Mode:
 ```txt

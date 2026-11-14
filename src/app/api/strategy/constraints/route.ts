@@ -34,6 +34,11 @@ export async function POST(request: Request) {
   if (!viewer) {
     return NextResponse.json({ error: { message: "Sign in to update guardrails." } }, { status: 401 });
   }
+  // Every anonymous visitor shares the demo account; one visitor must not change another's limits.
+  // The strategy builder still evaluates overrides per request via `guardrailOverrides`.
+  if (viewer.demo) {
+    return NextResponse.json({ error: { message: "Sign in to save your own guardrails." } }, { status: 403 });
+  }
 
   let body: unknown;
   try {
